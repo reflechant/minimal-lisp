@@ -47,7 +47,11 @@ func atom(scope Scope, args ...Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("atom: expects 1 argument, %d given", len(args)))
 	}
-	switch v := args[0].(type) {
+	val, err := args[0].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("atom: evaluation error: %w", err)
+	}
+	switch v := val.(type) {
 	case Atom:
 		return true_, nil
 	case List:
@@ -66,16 +70,26 @@ func eq(scope Scope, args ...Expr) (Expr, error) {
 		return nil, errors.New(fmt.Sprintf("eq: expects 2 arguments, %d given", len(args)))
 	}
 
+	// evaluate arguments
+	arg1, err := args[0].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("eq: argument 1 evaluation error: %w", err)
+	}
+	arg2, err := args[1].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("eq: argument 2 evaluation error: %w", err)
+	}
+
 	// if equal atoms return t
-	a1, ok1 := args[0].(Atom)
-	a2, ok2 := args[1].(Atom)
+	a1, ok1 := arg1.(Atom)
+	a2, ok2 := arg2.(Atom)
 	if ok1 && ok2 && a1 == a2 {
 		return true_, nil
 	}
 
 	// if both are empty lists return t
-	l1, ok1 := args[0].(List)
-	l2, ok2 := args[1].(List)
+	l1, ok1 := arg1.(List)
+	l2, ok2 := arg2.(List)
 	if ok1 && ok2 && l1.IsEmpty() && l2.IsEmpty() {
 		return true_, nil
 	}
@@ -89,7 +103,12 @@ func car(scope Scope, args ...Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("car: expects 1 argument, %d given", len(args)))
 	}
-	l, ok := args[0].(List)
+	// evaluate argument
+	arg, err := args[0].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("car: evaluation error: %w", err)
+	}
+	l, ok := arg.(List)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("car: argument must be a list, instead was given %v", args[0]))
 	}
@@ -105,7 +124,12 @@ func cdr(scope Scope, args ...Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("cdr: expects 1 argument, %d given", len(args)))
 	}
-	l, ok := args[0].(List)
+	// evaluate argument
+	arg, err := args[0].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("cdr: evaluation error: %w", err)
+	}
+	l, ok := arg.(List)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("cdr: argument must be a list, instead was given %v", args[0]))
 	}
@@ -122,12 +146,21 @@ func cons(scope Scope, args ...Expr) (Expr, error) {
 	if len(args) != 2 {
 		return nil, errors.New(fmt.Sprintf("cons: expects 2 arguments, %d given", len(args)))
 	}
-	rest, ok := args[1].(List)
+	// evaluate arguments
+	arg1, err := args[0].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("cons: argument 1 evaluation error: %w", err)
+	}
+	arg2, err := args[1].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("cons: argument 2 evaluation error: %w", err)
+	}
+	rest, ok := arg2.(List)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("cons: 2nd argument must be a list, instead was given %v", args[1]))
 	}
 
-	return rest.Cons(args[0]), nil
+	return rest.Cons(arg1), nil
 }
 
 // cond performs conditional evaluation.
