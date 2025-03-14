@@ -4,16 +4,13 @@ import (
 	"log"
 	"os"
 	"path"
-
-	minlisp "github.com/reflechant/minimal-lisp/lisp"
 )
 
 func main() {
-	err := minlisp.Repl(nil, os.Stdin, os.Stdout)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
+	// err := minlisp.Repl(nil, os.Stdin, os.Stdout)
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 }
 
 func ReadFile(fpath string) (*os.File, error) {

@@ -132,7 +132,7 @@ func cons(scope Scope, args ...Expr) (Expr, error) {
 
 // cond performs conditional evaluation.
 //
-// (cond (p1 e1 ) ... (pn en)) is evaluated as follows. The p
+// (cond (p1 e1) ... (pn en)) is evaluated as follows. The p
 // expressions are evaluated in order until one returns t. When one is
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
@@ -148,7 +148,7 @@ func cond(scope Scope, args ...Expr) (Expr, error) {
 		}
 		val := l.Rest().First()
 		if val == nil {
-			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a value", i+1))
+			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a return value", i+1))
 		}
 		condition, err := pred.Eval(scope)
 		if err != nil {
