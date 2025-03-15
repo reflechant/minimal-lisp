@@ -1,16 +1,15 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"path"
+
+	"github.com/reflechant/minimal-lisp/parser"
 )
 
 func main() {
-	// err := minlisp.Repl(nil, os.Stdin, os.Stdout)
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
+	// parser.Parse()
 }
 
 func ReadFile(fpath string) (*os.File, error) {

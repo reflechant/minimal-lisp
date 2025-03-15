@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	true_  = Atom("t")
-	false_ = List{}
+	true_  = NewAtom(0, 0, "t")
+	false_ = NewEmptyList(0, 0)
 )
 
 // BuiltinScope defines the default scope for all evaluations that is always present
