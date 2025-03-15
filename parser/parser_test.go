@@ -11,7 +11,7 @@ import (
 
 func TestEmptyList(t *testing.T) {
 	rdr := strings.NewReader("()")
-	exprs, err := Parse(rdr)
+	exprs, err := Parse("test", rdr)
 	require.NoError(t, err)
 	expected := []core.Expr{
 		core.NewEmptyList(1, 1),
@@ -21,7 +21,7 @@ func TestEmptyList(t *testing.T) {
 
 func TestOneAtom(t *testing.T) {
 	rdr := strings.NewReader("foo")
-	exprs, err := Parse(rdr)
+	exprs, err := Parse("test", rdr)
 	require.NoError(t, err)
 	expected := []core.Expr{
 		core.NewAtom(1, 1, "foo"),
@@ -31,7 +31,7 @@ func TestOneAtom(t *testing.T) {
 
 func TestNestedList(t *testing.T) {
 	rdr := strings.NewReader("(foo ( bar) baz)")
-	exprs, err := Parse(rdr)
+	exprs, err := Parse("test", rdr)
 	require.NoError(t, err)
 	expected := []core.Expr{
 		core.NewListFromElements(1, 1, []core.Expr{
@@ -50,7 +50,7 @@ func TestMultiLine(t *testing.T) {
 		`()
   foo
 ()`)
-	exprs, err := Parse(rdr)
+	exprs, err := Parse("test", rdr)
 	require.NoError(t, err)
 	expected := []core.Expr{
 		core.NewEmptyList(1, 1),

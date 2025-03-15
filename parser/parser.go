@@ -18,10 +18,10 @@ func (e Error) Error() string {
 	return fmt.Sprintf("parser error at %d:%d, %s", e.line, e.pos, e.msg)
 }
 
-func Parse(input io.Reader) ([]core.Expr, error) {
+func Parse(srcName string, input io.Reader) ([]core.Expr, error) {
 	tokens, err := lexer.Tokenize(input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", srcName, err)
 	}
 
 	exprs := []core.Expr{}
@@ -30,7 +30,7 @@ func Parse(input io.Reader) ([]core.Expr, error) {
 	for i < len(tokens) {
 		expr, next, err := parse(tokens, i)
 		if err != nil {
-			return exprs, err
+			return exprs, fmt.Errorf("%s: %w", srcName, err)
 		}
 		exprs = append(exprs, expr)
 		i = next
@@ -53,9 +53,15 @@ func parse(tokens []lexer.Token, start int) (core.Expr, int, error) {
 			pos:  tok.Pos,
 			msg:  fmt.Sprintf("unexpected token %v", tok.Text),
 		}
-	// TODO: support 'x as syntactic sugar over (quote x)
-	// case lexer.Quote:
-	// exprs = append(exprs, core.Expr)
+	case lexer.Quote:
+		quotedExpr, next, err := parse(tokens, start+1)
+		if err != nil {
+			return nil, next, err
+		}
+		return core.NewListFromElements(tok.Line, tok.Pos, []core.Expr{
+			core.NewAtom(tok.Line, tok.Pos, "quote"),
+			quotedExpr,
+		}), next, nil
 	default:
 		return nil, start + 1, Error{
 			line: tok.Line,
@@ -73,31 +79,20 @@ func parseList(tokens []lexer.Token, start int) (core.Expr, int, error) {
 	i := start + 1
 	for i < len(tokens) {
 		tok := tokens[i]
-		switch tok.Typ {
-		case lexer.Atom:
-			items = append(items, core.NewAtom(tok.Line, tok.Pos, tok.Text))
-			i++
-		case lexer.LParen:
-			lst, next, err := parseList(tokens, i)
-			if err != nil {
-				return nil, next, err
-			}
-			items = append(items, lst)
-			i = next
-		case lexer.RParen:
+		if tok.Typ == lexer.RParen {
+			// end of the list, returning accumulated items
 			return core.NewListFromElements(line, pos, items), i + 1, nil
-		// case lexer.Quote:
-		// exprs = append(exprs, core.Expr)
-		default:
-			return nil, i + 1, Error{
-				line: tok.Line,
-				pos:  tok.Pos,
-				msg:  fmt.Sprintf("unknown token %v", tok.Text),
-			}
 		}
+
+		expr, next, err := parse(tokens, i)
+		if err != nil {
+			return nil, next, err
+		}
+
+		items = append(items, expr)
+		i = next
 	}
 
-	// return core.NewListFromElements(line, pos, items), i + 1, nil
 	return nil, i + 1, Error{
 		line: tokens[i].Line,
 		pos:  tokens[i].Pos,

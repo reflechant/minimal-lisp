@@ -45,6 +45,11 @@ func Tokenize(input io.Reader) ([]Token, error) {
 		line := lineScanner.Text()
 		lineIdx++
 
+		// ignore comments
+		if strings.HasPrefix(line, ";") {
+			continue
+		}
+
 		var atomBuf strings.Builder
 		pos := -1
 		for i, r := range line {
@@ -78,6 +83,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 					Typ:  LParen,
 					Line: lineIdx,
 					Pos:  uint(i + 1),
+					Text: "(",
 				})
 				continue
 			}
@@ -86,6 +92,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 					Typ:  RParen,
 					Line: lineIdx,
 					Pos:  uint(i + 1),
+					Text: ")",
 				})
 				continue
 			}
@@ -94,6 +101,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 					Typ:  Quote,
 					Line: lineIdx,
 					Pos:  uint(i + 1),
+					Text: "'",
 				})
 				continue
 			}
