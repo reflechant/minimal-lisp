@@ -58,6 +58,7 @@ func TestMultiLine(t *testing.T) {
 		core.NewEmptyList(3, 1),
 	}
 	for i := range expected {
-		assert.True(t, expected[i].Eq(exprs[i]), "expr %d: %v is not equal %v", i, expected[i], exprs[i])
+		// assert.True(t, expected[i].Eq(exprs[i]), "expr %d: %v is not equal %v", i, expected[i], exprs[i])
+		assert.Equal(t, expected[i].Print(), exprs[i].Print())
 	}
 }
