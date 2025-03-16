@@ -17,7 +17,7 @@ import (
 )
 
 // Fn is a universal function type
-type Fn func(scope Scope, args ...Expr) (Expr, error)
+type Fn func(scope Scope, args ...SExpr) (SExpr, error)
 
 // Scope stores known functions and values. Scope is lexical. This is
 // a so-called LISP-1 - name conflicts are not allowed and one symbol can
@@ -26,10 +26,10 @@ type Fn func(scope Scope, args ...Expr) (Expr, error)
 type Scope struct {
 	parent *Scope // to enable lexical scope, shadowing and immutability
 	fns    map[string]Fn
-	vals   map[string]Expr
+	vals   map[string]SExpr
 }
 
-func (scope Scope) FindVal(sym string) (Expr, error) {
+func (scope Scope) FindVal(sym string) (SExpr, error) {
 	for scope := &scope; scope != nil; scope = scope.parent {
 		if val, ok := scope.vals[sym]; ok {
 			return val, nil
@@ -49,25 +49,26 @@ func (scope Scope) FindFn(sym string) (Fn, error) {
 	return nil, errors.New(fmt.Sprintf("function %s not found in scope", sym))
 }
 
-type Expr interface {
+// SExpr defines S-expressions as an interface. It's implemented by: atom, list
+type SExpr interface {
 	// Eval is the only mandatory operation needed on expressions. Returns the expression value
-	Eval(scope Scope) (Expr, error)
-	// Print is used to give expressions visual representation (can be useful for REPL)
+	Eval(scope Scope) (SExpr, error)
+	// Print is used to give expressions visual representation (for P in REPL)
 	Print() string
 	// Line returns line number in the code source where the expression starts. Good for comprehensive error messages
 	Line() uint
 	// Pos returns position in line in the code source where the expression starts. Good for comprehensive error messages
 	Pos() uint
 	// Eq returns true if expressions are _structurally_ equal.
-	// Not mandatory at all but I found it being useful for tests
+	// Not mandatory at all but it's useful for tests
 	// and it may be a nice language feature to make `eq` perform
-	// structural equality.
-	Eq(e Expr) bool
+	// structural equality (as in Clojure).
+	Eq(e SExpr) bool
 }
 
 // interface checks
-var _ Expr = List{}
-var _ Expr = Atom{}
+var _ SExpr = List{}
+var _ SExpr = Atom{}
 
 type Atom struct {
 	line uint
@@ -87,7 +88,7 @@ func (a Atom) Line() uint { return a.line }
 
 func (a Atom) Pos() uint { return a.pos }
 
-func (a Atom) Eq(e Expr) bool {
+func (a Atom) Eq(e SExpr) bool {
 	a2, ok := e.(Atom)
 	if !ok {
 		return false
@@ -96,7 +97,7 @@ func (a Atom) Eq(e Expr) bool {
 	return a.text == a2.text
 }
 
-func (a Atom) Eval(scope Scope) (Expr, error) {
+func (a Atom) Eval(scope Scope) (SExpr, error) {
 	e, err := scope.FindVal(a.text)
 	if err != nil {
 		return nil, fmt.Errorf("%d:%d: %w", a.line, a.pos, err)
@@ -110,7 +111,7 @@ func (a Atom) Print() string {
 }
 
 type ListElement struct {
-	expr Expr
+	expr SExpr
 	next *ListElement
 }
 
@@ -128,7 +129,7 @@ func NewEmptyList(line, pos uint) List {
 	}
 }
 
-func NewList(line, pos uint, expr Expr) List {
+func NewList(line, pos uint, expr SExpr) List {
 	return List{
 		head: &ListElement{
 			expr: expr,
@@ -139,7 +140,7 @@ func NewList(line, pos uint, expr Expr) List {
 	}
 }
 
-func NewListFromElements(line, pos uint, els []Expr) List {
+func NewListFromElements(line, pos uint, els []SExpr) List {
 	lst := NewEmptyList(line, pos)
 
 	var el *ListElement = nil
@@ -161,7 +162,7 @@ func (l List) Line() uint { return l.line }
 
 func (l List) Pos() uint { return l.pos }
 
-func (l List) Eq(e Expr) bool {
+func (l List) Eq(e SExpr) bool {
 	l2, ok := e.(List)
 	if !ok {
 		return false
@@ -182,7 +183,7 @@ func (l List) Eq(e Expr) bool {
 	return l.Rest().Eq(l2.Rest())
 }
 
-func (l List) Eval(scope Scope) (Expr, error) {
+func (l List) Eval(scope Scope) (SExpr, error) {
 	if l.IsEmpty() {
 		// empty list evaluates to itself
 		return l, nil
@@ -200,7 +201,7 @@ func (l List) Eval(scope Scope) (Expr, error) {
 		return nil, fmt.Errorf("list evaluation error: %w", err)
 	}
 	// eval all arguments
-	arguments := []Expr{}
+	arguments := []SExpr{}
 	for arg := l.Rest(); !arg.IsEmpty(); arg = arg.Rest() {
 		arguments = append(arguments, arg.First())
 	}
@@ -218,7 +219,7 @@ func (l List) IsEmpty() bool {
 	return l.head == nil
 }
 
-func (l List) First() Expr {
+func (l List) First() SExpr {
 	if l.head != nil {
 		return l.head.expr
 	}
@@ -235,7 +236,7 @@ func (l List) Rest() List {
 }
 
 // Cons adds to the front
-func (l List) Cons(e Expr) List {
+func (l List) Cons(e SExpr) List {
 	return List{
 		head: &ListElement{
 			expr: e,

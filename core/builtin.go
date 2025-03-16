@@ -32,11 +32,12 @@ func BuiltinScope() Scope {
 	}
 }
 
-// The following 7 operators are the "Maxwell equations of programming" as Paul Graham called them
+// The following 7 operators are the "Maxwell equations of programming" as Paul Graham called them.
+// In LISP 1.5 manual they are called "elementary functions of S-expressions"
 
 // quote returns it's parameter unchanged. (quote x) returns x.
 // Exists mostly to prevent list evaluation (which is their default behaviour)
-func quote(scope Scope, args ...Expr) (Expr, error) {
+func quote(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("quote: expects 1 argument, %d given", len(args)))
 	}
@@ -46,7 +47,7 @@ func quote(scope Scope, args ...Expr) (Expr, error) {
 
 // atom returns the atom t if the value of x is an atom or the empty
 // list. Otherwise it returns ().
-func atom(scope Scope, args ...Expr) (Expr, error) {
+func atom(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("atom: expects 1 argument, %d given", len(args)))
 	}
@@ -68,7 +69,7 @@ func atom(scope Scope, args ...Expr) (Expr, error) {
 
 // eq returns t if the values of x and y are the same atom or both the
 // empty list, and () otherwise
-func eq(scope Scope, args ...Expr) (Expr, error) {
+func eq(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 2 {
 		return nil, errors.New(fmt.Sprintf("eq: expects 2 arguments, %d given", len(args)))
 	}
@@ -102,7 +103,7 @@ func eq(scope Scope, args ...Expr) (Expr, error) {
 }
 
 // car expects it's only argument to be a list, and returns its first element
-func car(scope Scope, args ...Expr) (Expr, error) {
+func car(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("car: expects 1 argument, %d given", len(args)))
 	}
@@ -123,7 +124,7 @@ func car(scope Scope, args ...Expr) (Expr, error) {
 }
 
 // cdr expects its only argument to be a list, and returns everything after the first element (may be an empty list).
-func cdr(scope Scope, args ...Expr) (Expr, error) {
+func cdr(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("cdr: expects 1 argument, %d given", len(args)))
 	}
@@ -145,7 +146,7 @@ func cdr(scope Scope, args ...Expr) (Expr, error) {
 //
 // (cons x y) expects the value of y to be a list, and returns a list
 // containing the value of x followed by the elements of the value of y
-func cons(scope Scope, args ...Expr) (Expr, error) {
+func cons(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 2 {
 		return nil, errors.New(fmt.Sprintf("cons: expects 2 arguments, %d given", len(args)))
 	}
@@ -172,7 +173,7 @@ func cons(scope Scope, args ...Expr) (Expr, error) {
 // expressions are evaluated in order until one returns t. When one is
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
-func cond(scope Scope, args ...Expr) (Expr, error) {
+func cond(scope Scope, args ...SExpr) (SExpr, error) {
 	for i, arg := range args {
 		l, ok := arg.(List)
 		if !ok {
@@ -199,7 +200,7 @@ func cond(scope Scope, args ...Expr) (Expr, error) {
 }
 
 // lambda creates an anonymous function and returns it
-func lambda(scope Scope, args ...Expr) (Expr, error) {
+func lambda(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New("lambda: expects at least 1 argument")
 	}
@@ -208,7 +209,7 @@ func lambda(scope Scope, args ...Expr) (Expr, error) {
 }
 
 // defun serves to define new functions. It creates new functions in scope
-func defun(scope Scope, args ...Expr) (Expr, error) {
+func defun(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) == 0 {
 		return nil, errors.New("defun: expects at least 1 argument")
 	}

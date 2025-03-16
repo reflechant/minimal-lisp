@@ -18,13 +18,13 @@ func (e Error) Error() string {
 	return fmt.Sprintf("parser error at %d:%d, %s", e.line, e.pos, e.msg)
 }
 
-func Parse(srcName string, input io.Reader) ([]core.Expr, error) {
+func Parse(srcName string, input io.Reader) ([]core.SExpr, error) {
 	tokens, err := lexer.Tokenize(input)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", srcName, err)
 	}
 
-	exprs := []core.Expr{}
+	exprs := []core.SExpr{}
 
 	i := 0
 	for i < len(tokens) {
@@ -39,7 +39,7 @@ func Parse(srcName string, input io.Reader) ([]core.Expr, error) {
 	return exprs, nil
 }
 
-func parse(tokens []lexer.Token, start int) (core.Expr, int, error) {
+func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 	tok := tokens[start]
 
 	switch tok.Typ {
@@ -58,7 +58,7 @@ func parse(tokens []lexer.Token, start int) (core.Expr, int, error) {
 		if err != nil {
 			return nil, next, err
 		}
-		return core.NewListFromElements(tok.Line, tok.Pos, []core.Expr{
+		return core.NewListFromElements(tok.Line, tok.Pos, []core.SExpr{
 			core.NewAtom(tok.Line, tok.Pos, "quote"),
 			quotedExpr,
 		}), next, nil
@@ -71,11 +71,11 @@ func parse(tokens []lexer.Token, start int) (core.Expr, int, error) {
 	}
 }
 
-func parseList(tokens []lexer.Token, start int) (core.Expr, int, error) {
+func parseList(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 	// start points to '('
 	line, pos := tokens[start].Line, tokens[start].Pos
 
-	items := []core.Expr{}
+	items := []core.SExpr{}
 	i := start + 1
 	for i < len(tokens) {
 		tok := tokens[i]
