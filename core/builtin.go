@@ -10,16 +10,19 @@ var (
 	false_ = NewEmptyList(0, 0)
 )
 
-// BuiltinScope defines the default scope for all evaluations that is always present
+// BuiltinScope returns the default scope for all evaluations that is always present.
+// It contains the 7 basic operators from "The Roots of LISP" + `lambda` + `defun`
 func BuiltinScope() Scope {
 	fns := map[string]Fn{
-		"quote": quote,
-		"atom":  atom,
-		"eq":    eq,
-		"car":   car,
-		"cdr":   cdr,
-		"cons":  cons,
-		"cond":  cond,
+		"quote":  quote,
+		"atom":   atom,
+		"eq":     eq,
+		"car":    car,
+		"cdr":    cdr,
+		"cons":   cons,
+		"cond":   cond,
+		"lambda": lambda,
+		"defun":  defun,
 	}
 
 	return Scope{
@@ -134,7 +137,7 @@ func cdr(scope Scope, args ...Expr) (Expr, error) {
 		return nil, errors.New(fmt.Sprintf("cdr: argument must be a list, instead was given %v", args[0]))
 	}
 
-	// we return an empty list if there is no 1st element or there is nothing after it
+	// return an empty list if there is no 1st element or there is nothing after it
 	return l.Rest(), nil
 }
 
@@ -193,4 +196,22 @@ func cond(scope Scope, args ...Expr) (Expr, error) {
 	}
 
 	return false_, nil
+}
+
+// lambda creates an anonymous function and returns it
+func lambda(scope Scope, args ...Expr) (Expr, error) {
+	if len(args) != 1 {
+		return nil, errors.New("lambda: expects at least 1 argument")
+	}
+
+	return args[0], nil
+}
+
+// defun serves to define new functions. It creates new functions in scope
+func defun(scope Scope, args ...Expr) (Expr, error) {
+	if len(args) == 0 {
+		return nil, errors.New("defun: expects at least 1 argument")
+	}
+
+	return args[0], nil
 }

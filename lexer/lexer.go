@@ -34,6 +34,9 @@ const (
 	Quote
 )
 
+// Tokenize splits the input into recognized tokens and returns them in order.
+// It's hand-written and rather ad-hoc but it's good enough for now.
+// For a more complex grammar I would definitely make it more generic or use ANTLR
 func Tokenize(input io.Reader) ([]Token, error) {
 	lineScanner := bufio.NewScanner(input)
 	lineScanner.Split(bufio.ScanLines)

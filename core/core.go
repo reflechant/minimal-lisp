@@ -19,11 +19,10 @@ import (
 // Fn is a universal function type
 type Fn func(scope Scope, args ...Expr) (Expr, error)
 
-// Scope stores known functions and values. We use lexical scope. This is a
-// so-called LISP-1 - though we store functions and values separately, name
-// conflicts are not allowed and one symbol can only be either a function or a
-// value. Shadowing is allowed and you can rebind a function symbol to a value and vice
-// versa.
+// Scope stores known functions and values. Scope is lexical. This is
+// a so-called LISP-1 - name conflicts are not allowed and one symbol can
+// only be either a function or a value. Shadowing is allowed and you can
+// rebind a function symbol to a value and vice versa.
 type Scope struct {
 	parent *Scope // to enable lexical scope, shadowing and immutability
 	fns    map[string]Fn
@@ -51,10 +50,18 @@ func (scope Scope) FindFn(sym string) (Fn, error) {
 }
 
 type Expr interface {
+	// Eval is the only mandatory operation needed on expressions. Returns the expression value
 	Eval(scope Scope) (Expr, error)
+	// Print is used to give expressions visual representation (can be useful for REPL)
 	Print() string
+	// Line returns line number in the code source where the expression starts. Good for comprehensive error messages
 	Line() uint
+	// Pos returns position in line in the code source where the expression starts. Good for comprehensive error messages
 	Pos() uint
+	// Eq returns true if expressions are _structurally_ equal.
+	// Not mandatory at all but I found it being useful for tests
+	// and it may be a nice language feature to make `eq` perform
+	// structural equality.
 	Eq(e Expr) bool
 }
 
@@ -199,7 +206,12 @@ func (l List) Eval(scope Scope) (Expr, error) {
 	}
 	// pass them to the Fn
 
-	return fn(scope, arguments...)
+	result, err := fn(scope, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("%d:%d list evaluation error: %w", l.line, l.pos, err)
+	}
+
+	return result, nil
 }
 
 func (l List) IsEmpty() bool {
