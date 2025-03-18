@@ -1,155 +1,178 @@
 package core
 
 import (
-	"errors"
 	"fmt"
+	"iter"
 	"strings"
 )
 
-var _ SExpr = new(List)
+// compile-time interface checks
+var _ SExp = new(List)
 
-type ListElement struct {
-	expr SExpr
-	next *ListElement
-}
-
+// List represents one "cons cell" or "pair" from which lists are
+// constructed.  Another way of implementing lists would be to use binary
+// trees. It's interesting to check which is more convenient and
+// performant.
 type List struct {
-	head *ListElement
-	line uint
-	pos  uint
+	// first item in pair, traditionally called "car"
+	first SExp
+	// second item in pair, traditionally called "cdr"
+	second SExp
+	line   uint
+	pos    uint
 }
 
-func NewEmptyList(line, pos uint) List {
-	return List{
-		head: nil,
-		line: line,
-		pos:  pos,
-	}
-}
-
-func NewList(line, pos uint, expr SExpr) List {
-	return List{
-		head: &ListElement{
-			expr: expr,
-			next: nil,
-		},
-		line: line,
-		pos:  pos,
-	}
-}
-
-func NewListFromElements(line, pos uint, els []SExpr) List {
-	lst := NewEmptyList(line, pos)
-
-	var el *ListElement = nil
-	// going in reverse direction because it's more suitable for a singly linked list
+func NewList(line, pos uint, els ...SExp) List {
+	var prev List
 	for i := len(els) - 1; i >= 0; i-- {
-		newEl := &ListElement{
-			expr: els[i],
-			next: el,
+		p := List{
+			first:  els[i],
+			second: prev,
 		}
-		el = newEl
+		prev = p
 	}
 
-	lst.head = el
-
-	return lst
+	return prev
 }
 
-// func (l List) Eq(e SExpr) bool {
-// 	l2, ok := e.(List)
-// 	if !ok {
-// 		return false
-// 	}
-
-// 	if l.IsEmpty() && l2.IsEmpty() {
-// 		return true
-// 	}
-
-// 	if l.IsEmpty() != l2.IsEmpty() {
-// 		return false
-// 	}
-
-// 	if !l.First().Eq(l2.First()) {
-// 		return false
-// 	}
-
-// 	return l.Rest().Eq(l2.Rest())
-// }
-
-func (l List) Eval(scope Scope) (SExpr, error) {
+// Eval returns the value of a list S-expression.
+// Usually a form like `(f a b c)` is called a "function call" but depending
+// on what f is different rules may apply (specifically for lambda, label and defun).
+// That's why we let the function to evaluate the arguments because in some cases
+// they shouldn't be evaluated (e.g. parameter list for lambda)
+// See "The Roots of LISP" for details.
+func (l List) Eval(scope Scope) (SExp, error) {
 	if l.IsEmpty() {
 		// empty list evaluates to itself
 		return l, nil
 	}
-	arg1, err := l.First().Eval(scope)
-	if err != nil {
-		return nil, fmt.Errorf("%d:%d list evaluation error: %w", l.line, l.pos, err)
-	}
-	fnSym, ok := arg1.(Atom)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("%d:%d list evaluation error: first argument is not an atom but %v", l.line, l.pos, arg1))
-	}
-	fn, err := scope.FindFn(fnSym.text)
-	if err != nil {
-		return nil, fmt.Errorf("list evaluation error: %w", err)
-	}
-	// eval all arguments
-	arguments := []SExpr{}
-	for arg := l.Rest(); !arg.IsEmpty(); arg = arg.Rest() {
-		arguments = append(arguments, arg.First())
-	}
-	// pass them to the Fn
 
-	result, err := fn(scope, arguments...)
+	// get the function to evaluate
+	fnSExpr, err := l.First().Eval(scope)
 	if err != nil {
-		return nil, fmt.Errorf("%d:%d list evaluation error: %w", l.line, l.pos, err)
+		return nil, l.error("", err)
+	}
+	fn, ok := fnSExpr.(Fn)
+	if !ok {
+		return nil, l.error(fmt.Sprintf("can not call `%v` as a function", fnSExpr), nil)
+	}
+
+	// get the parameters
+	args := []SExp{}
+
+	rest := l.Rest()
+	switch v := rest.(type) {
+	case List:
+
+	default:
+		args = append(args, v)
+	}
+
+	// pass arguments to the Fn (unevaluated)
+	result, err := fn.Invoke(scope, args...)
+	if err != nil {
+		return nil, l.error("", err)
 	}
 
 	return result, nil
 }
 
 func (l List) IsEmpty() bool {
-	return l.head == nil
+	return l.first == nil
 }
 
-func (l List) First() SExpr {
-	if l.head != nil {
-		return l.head.expr
-	}
-
-	return nil
+func (l List) First() SExp {
+	return l.first
 }
 
-func (l List) Rest() List {
-	if l.head != nil {
-		return List{head: l.head.next}
-	}
-
-	return List{}
+func (l List) Rest() SExp {
+	return l.second
 }
 
-// Cons adds to the front
-func (l List) Cons(e SExpr) List {
+func (l List) Cons(v SExp) List {
 	return List{
-		head: &ListElement{
-			expr: e,
-			next: l.head,
-		},
+		first:  v,
+		second: l,
 	}
 }
 
-func (l List) Print() string {
+func (l List) Items() iter.Seq[SExp] {
+	return func(yield func(SExp) bool) {
+		for !l.IsEmpty() {
+			if !yield(l.First()) {
+				return
+			}
+
+			if l.Rest() == nil {
+				return
+			}
+			next, ok := l.Rest().(List)
+			if !ok {
+				if !yield(next) {
+					return
+				}
+			}
+			l = next
+		}
+	}
+}
+
+func (l List) String() string {
 	var b strings.Builder
 	b.WriteRune('(')
 
-	els := []string{}
-	for el := l.head; el != nil; el = el.next {
-		els = append(els, el.expr.Print())
+	if l.first != nil {
+		b.WriteString(l.first.String())
+		b.WriteRune(' ')
 	}
-	b.WriteString(strings.Join(els, " "))
+
+	if l.second != nil {
+		b.WriteString(l.second.String())
+		b.WriteRune(' ')
+	}
 
 	b.WriteRune(')')
 
 	return b.String()
+}
+
+func (l List) error(msg string, err error) ListEvalError {
+	return ListEvalError{
+		line:       l.line,
+		pos:        l.pos,
+		wrappedErr: err,
+		msg:        msg,
+	}
+}
+
+type ListEvalError struct {
+	line       uint
+	pos        uint
+	wrappedErr error
+	msg        string
+}
+
+func (e ListEvalError) Error() string {
+	var errBuilder strings.Builder
+
+	if e.line > 0 && e.pos > 0 {
+		errBuilder.WriteString(fmt.Sprintf("%d:%d ", e.line, e.pos))
+	}
+
+	errBuilder.WriteString("evaluation error: ")
+
+	if e.msg != "" {
+		errBuilder.WriteString(e.msg)
+		errBuilder.WriteString(": ")
+	}
+
+	if e.wrappedErr != nil {
+		errBuilder.WriteString(e.wrappedErr.Error())
+	}
+
+	return errBuilder.String()
+}
+
+func (e ListEvalError) Unwrap() error {
+	return e.wrappedErr
 }

@@ -18,13 +18,13 @@ func (e Error) Error() string {
 	return fmt.Sprintf("parser error at %d:%d, %s", e.line, e.pos, e.msg)
 }
 
-func Parse(srcName string, input io.Reader) ([]core.SExpr, error) {
+func Parse(srcName string, input io.Reader) ([]core.SExp, error) {
 	tokens, err := lexer.Tokenize(input)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", srcName, err)
 	}
 
-	exprs := []core.SExpr{}
+	exprs := []core.SExp{}
 
 	i := 0
 	for i < len(tokens) {
@@ -39,12 +39,12 @@ func Parse(srcName string, input io.Reader) ([]core.SExpr, error) {
 	return exprs, nil
 }
 
-func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
+func parse(tokens []lexer.Token, start int) (core.SExp, int, error) {
 	tok := tokens[start]
 
 	switch tok.Typ {
 	case lexer.Atom:
-		return core.NewAtom(tok.Line, tok.Pos, tok.Text), start + 1, nil
+		return core.NewSymbol(tok.Line, tok.Pos, tok.Text), start + 1, nil
 	case lexer.LParen:
 		return parseList(tokens, start) // we start at i so that it can set line and pos for the list
 	case lexer.RParen:
@@ -58,10 +58,12 @@ func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 		if err != nil {
 			return nil, next, err
 		}
-		return core.NewListFromElements(tok.Line, tok.Pos, []core.SExpr{
-			core.NewAtom(tok.Line, tok.Pos, "quote"),
+		return core.NewList(
+			tok.Line,
+			tok.Pos,
+			core.NewSymbol(tok.Line, tok.Pos, "quote"),
 			quotedExpr,
-		}), next, nil
+		), next, nil
 	default:
 		return nil, start + 1, Error{
 			line: tok.Line,
@@ -71,17 +73,17 @@ func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 	}
 }
 
-func parseList(tokens []lexer.Token, start int) (core.SExpr, int, error) {
+func parseList(tokens []lexer.Token, start int) (core.SExp, int, error) {
 	// start points to '('
 	line, pos := tokens[start].Line, tokens[start].Pos
 
-	items := []core.SExpr{}
+	items := []core.SExp{}
 	i := start + 1
 	for i < len(tokens) {
 		tok := tokens[i]
 		if tok.Typ == lexer.RParen {
 			// end of the list, returning accumulated items
-			return core.NewListFromElements(line, pos, items), i + 1, nil
+			return core.NewList(line, pos, items...), i + 1, nil
 		}
 
 		expr, next, err := parse(tokens, i)

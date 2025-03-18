@@ -12,26 +12,27 @@ import (
 )
 
 //go:embed core.lisp
-//go:embed core-modern.lisp
 
 var fs embed.FS
 
 func main() {
-	file, err := fs.Open("core-modern.lisp")
+	srcName := "core.lisp"
+	file, err := fs.Open(srcName)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	exprs, err := parser.Parse("core-modern.lisp", file)
+	exprs, err := parser.Parse(srcName, file)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	scope := core.BuiltinScope()
 	for _, e := range exprs {
-		result, err := e.Eval(core.BuiltinScope())
+		result, err := e.Eval(scope)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Errorf("%s: %w", srcName, err))
 		}
-		fmt.Println(result.Print())
+		fmt.Println(result)
 	}
 }
 

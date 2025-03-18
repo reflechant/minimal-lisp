@@ -44,6 +44,20 @@ func Tokenize(input io.Reader) ([]Token, error) {
 	tokens := []Token{}
 
 	var lineIdx uint = 0
+
+	finishAtom := func(b *strings.Builder, pos *int) {
+		if *pos >= 0 {
+			tokens = append(tokens, Token{
+				Typ:  Atom,
+				Line: lineIdx,
+				Pos:  uint(*pos),
+				Text: b.String(),
+			})
+			b.Reset()
+			*pos = -1
+		}
+	}
+
 	for lineScanner.Scan() {
 		line := lineScanner.Text()
 		lineIdx++
@@ -56,7 +70,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 		var atomBuf strings.Builder
 		pos := -1
 		for i, r := range line {
-			// if current rune is letter, append to the atom
+			// if current rune is letter, start/append an the atom
 			if unicode.IsLetter(r) {
 				atomBuf.WriteRune(r)
 				if pos < 0 {
@@ -64,24 +78,15 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				}
 				continue
 			}
-			// if current rune is not a letter, finish the atom if any
-			if atomBuf.Len() != 0 {
-				tokens = append(tokens, Token{
-					Typ:  Atom,
-					Line: lineIdx,
-					Pos:  uint(pos),
-					Text: atomBuf.String(),
-				})
-				atomBuf.Reset()
-				pos = -1
-			}
 
 			// ignore spaces
 			if unicode.IsSpace(r) {
+				finishAtom(&atomBuf, &pos)
 				continue
 			}
 
 			if r == '(' {
+				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  LParen,
 					Line: lineIdx,
@@ -91,6 +96,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				continue
 			}
 			if r == ')' {
+				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  RParen,
 					Line: lineIdx,
@@ -100,6 +106,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				continue
 			}
 			if r == '\'' {
+				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  Quote,
 					Line: lineIdx,
@@ -109,10 +116,19 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				continue
 			}
 
+			// allow numbers and other punctuation symbols inside atoms
+			if unicode.IsDigit(r) || unicode.IsPunct(r) {
+				atomBuf.WriteRune(r)
+				if pos < 0 {
+					pos = i + 1
+				}
+				continue
+			}
+
 			return tokens, Error{
 				line: lineIdx,
 				pos:  uint(i + 1),
-				msg:  fmt.Sprintf("unexpected symbol %s", string(r)),
+				msg:  fmt.Sprintf("unexpected character %s", string(r)),
 			}
 		}
 		// if reached end of the line and we're still reading an atom, finish it

@@ -6,29 +6,30 @@ import (
 )
 
 var (
-	true_  = NewAtom(0, 0, "t")
-	false_ = NewEmptyList(0, 0)
+	true_  = Symbol{name: "t"}
+	false_ = List{}
 )
 
-// BuiltinScope returns the default scope for all evaluations that is always present.
+// BuiltinScope returns the default environment for all evaluations that is always present.
 // It contains the 7 basic operators from "The Roots of LISP" + `lambda` + `defun`
 func BuiltinScope() Scope {
-	fns := map[string]Fn{
-		"quote":  quote,
-		"atom":   atom,
-		"eq":     eq,
-		"car":    car,
-		"cdr":    cdr,
-		"cons":   cons,
-		"cond":   cond,
-		"lambda": lambda,
-		"defun":  defun,
+	fns := map[string]SExp{
+		"quote": Fn{fn: quote},
+		"atom":  Fn{fn: atom},
+		"eq":    Fn{fn: eq},
+		"car":   Fn{fn: car},
+		"cdr":   Fn{fn: cdr},
+		"cons":  Fn{fn: cons},
+		"cond":  Fn{fn: cond},
+		// lambda and defun are placed here for convenience
+		"lambda": Fn{fn: lambda},
+		"label":  Fn{fn: label},
+		"defun":  Fn{fn: defun},
 	}
 
 	return Scope{
 		parent: nil, // this is supposed to be the root scope
-		fns:    fns,
-		vals:   nil, // no built-in values defined so far
+		vals:   fns, // no built-in values defined so far
 	}
 }
 
@@ -37,7 +38,7 @@ func BuiltinScope() Scope {
 
 // quote returns it's parameter unchanged. (quote x) returns x.
 // Exists mostly to prevent list evaluation (which is their default behaviour)
-func quote(scope Scope, args ...SExpr) (SExpr, error) {
+func quote(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("quote: expects 1 argument, %d given", len(args)))
 	}
@@ -47,7 +48,7 @@ func quote(scope Scope, args ...SExpr) (SExpr, error) {
 
 // atom returns the atom t if the value of x is an atom or the empty
 // list. Otherwise it returns ().
-func atom(scope Scope, args ...SExpr) (SExpr, error) {
+func atom(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("atom: expects 1 argument, %d given", len(args)))
 	}
@@ -56,7 +57,7 @@ func atom(scope Scope, args ...SExpr) (SExpr, error) {
 		return nil, fmt.Errorf("atom: evaluation error: %w", err)
 	}
 	switch v := val.(type) {
-	case Atom:
+	case Symbol:
 		return true_, nil
 	case List:
 		if v.IsEmpty() {
@@ -69,9 +70,9 @@ func atom(scope Scope, args ...SExpr) (SExpr, error) {
 
 // eq returns t if the values of x and y are the same atom or both the
 // empty list, and () otherwise
-func eq(scope Scope, args ...SExpr) (SExpr, error) {
+func eq(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 2 {
-		return nil, errors.New(fmt.Sprintf("eq: expects 2 arguments, %d given", len(args)))
+		return nil, errors.New(fmt.Sprintf("eq: expects 2 arguments, got %d", len(args)))
 	}
 
 	// evaluate arguments
@@ -85,8 +86,9 @@ func eq(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 
 	// if equal atoms return t
-	a1, ok1 := arg1.(Atom)
-	a2, ok2 := arg2.(Atom)
+	// (the only atoms present now are symbols)
+	a1, ok1 := arg1.(Symbol)
+	a2, ok2 := arg2.(Symbol)
 	if ok1 && ok2 && a1 == a2 {
 		return true_, nil
 	}
@@ -98,14 +100,14 @@ func eq(scope Scope, args ...SExpr) (SExpr, error) {
 		return true_, nil
 	}
 
-	// return ()
+	// return '()
 	return false_, nil
 }
 
 // car expects it's only argument to be a list, and returns its first element
-func car(scope Scope, args ...SExpr) (SExpr, error) {
+func car(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 1 {
-		return nil, errors.New(fmt.Sprintf("car: expects 1 argument, %d given", len(args)))
+		return nil, errors.New(fmt.Sprintf("car: expects 1 argument, got %d", len(args)))
 	}
 	// evaluate argument
 	arg, err := args[0].Eval(scope)
@@ -114,19 +116,19 @@ func car(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	l, ok := arg.(List)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("car: argument must be a list, instead was given %v", args[0]))
+		return nil, errors.New(fmt.Sprintf("car: argument must be a list, got %v", args[0]))
 	}
-	if l.IsEmpty() {
-		return nil, errors.New("car: can't return the 1st element of an empty list")
+	if l.First() == nil {
+		return List{}, nil
 	}
 
-	return l.head.expr, nil
+	return l.First(), nil
 }
 
 // cdr expects its only argument to be a list, and returns everything after the first element (may be an empty list).
-func cdr(scope Scope, args ...SExpr) (SExpr, error) {
+func cdr(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 1 {
-		return nil, errors.New(fmt.Sprintf("cdr: expects 1 argument, %d given", len(args)))
+		return nil, errors.New(fmt.Sprintf("cdr: expects 1 argument, got %d", len(args)))
 	}
 	// evaluate argument
 	arg, err := args[0].Eval(scope)
@@ -135,10 +137,13 @@ func cdr(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	l, ok := arg.(List)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("cdr: argument must be a list, instead was given %v", args[0]))
+		return nil, errors.New(fmt.Sprintf("cdr: argument must be a list, got %v", args[0]))
 	}
 
-	// return an empty list if there is no 1st element or there is nothing after it
+	if l.Rest() == nil {
+		return List{}, nil
+	}
+
 	return l.Rest(), nil
 }
 
@@ -146,9 +151,9 @@ func cdr(scope Scope, args ...SExpr) (SExpr, error) {
 //
 // (cons x y) expects the value of y to be a list, and returns a list
 // containing the value of x followed by the elements of the value of y
-func cons(scope Scope, args ...SExpr) (SExpr, error) {
+func cons(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) != 2 {
-		return nil, errors.New(fmt.Sprintf("cons: expects 2 arguments, %d given", len(args)))
+		return nil, errors.New(fmt.Sprintf("cons: expects 2 arguments, got %d", len(args)))
 	}
 	// evaluate arguments
 	arg1, err := args[0].Eval(scope)
@@ -161,10 +166,13 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	rest, ok := arg2.(List)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("cons: 2nd argument must be a list, instead was given %v", args[1]))
+		return nil, errors.New(fmt.Sprintf("cons: 2nd argument must be a list, got %v", args[1]))
 	}
 
-	return rest.Cons(arg1), nil
+	return List{
+		first:  arg1,
+		second: rest,
+	}, nil
 }
 
 // cond performs conditional evaluation.
@@ -173,17 +181,17 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 // expressions are evaluated in order until one returns t. When one is
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
-func cond(scope Scope, args ...SExpr) (SExpr, error) {
+func cond(scope Scope, args ...SExp) (SExp, error) {
 	for i, arg := range args {
-		l, ok := arg.(List)
+		p, ok := arg.(List)
 		if !ok {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is not a list, it's %v", i+1, args[i]))
 		}
-		pred := l.First()
+		pred := p.First()
 		if pred == nil {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a predicate", i+1))
 		}
-		val := l.Rest().First()
+		val := p.Rest()
 		if val == nil {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a return value", i+1))
 		}
@@ -200,19 +208,100 @@ func cond(scope Scope, args ...SExpr) (SExpr, error) {
 }
 
 // lambda creates an anonymous function and returns it
-func lambda(scope Scope, args ...SExpr) (SExpr, error) {
-	if len(args) != 1 {
+// example: (lambda (a b) (cons a b))
+func lambda(scope Scope, args ...SExp) (SExp, error) {
+	if len(args) < 1 {
 		return nil, errors.New("lambda: expects at least 1 argument")
 	}
-
-	return args[0], nil
-}
-
-// defun serves to define new functions. It creates new functions in scope
-func defun(scope Scope, args ...SExpr) (SExpr, error) {
-	if len(args) == 0 {
-		return nil, errors.New("defun: expects at least 1 argument")
+	paramList, ok := args[0].(List)
+	if !ok {
+		return nil, errors.New("lambda: first parameter is not a list")
 	}
 
-	return args[0], nil
+	// get function body
+	if len(args) < 2 {
+		// if function body is empty, lambda will return an empty list
+		return Fn{
+			fn: func(scope Scope, args ...SExp) (SExp, error) {
+				return List{}, nil
+			},
+		}, nil
+	}
+	body := args[1]
+
+	params := []Symbol{}
+	for p := range paramList.Items() {
+		p, ok := p.(Symbol)
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("lambda: parameter #%d in parameter list is not a symbol", len(params)+1))
+		}
+		params = append(params, p)
+	}
+
+	return Fn{
+		fn: func(scope Scope, args ...SExp) (SExp, error) {
+			if len(params) != len(args) {
+				return nil, errors.New(fmt.Sprintf("lambda: arity error: expected %d parameters, got %d", len(params), len(args)))
+			}
+
+			// evaluate operands and bind them to parameter symbols
+			scope = scope.NewLayer()
+			for i, a := range args {
+				v, err := a.Eval(scope)
+				if err != nil {
+					return nil, fmt.Errorf("lambda: error evaluating parameter #%d=%v", i+1, a, err)
+				}
+				scope.Bind(params[i].name, v)
+			}
+
+			// evaluate function body
+			return body.Eval(scope)
+		},
+	}, nil
+}
+
+// label creates a named function in scope and returns it
+func label(scope Scope, args ...SExp) (SExp, error) {
+	if len(args) != 2 {
+		return nil, errors.New("label: expects 2 arguments (function name and a lambda expression)")
+	}
+	fnSym, ok := args[0].(Symbol)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("label: 1st parameter (function name) is not a symbol but %v", args[0]))
+	}
+
+	// args[1] is expected to be a lambda (but could be another function)
+	fnVal, err := args[1].Eval(scope)
+	if err != nil {
+		return nil, fmt.Errorf("label: %w", err)
+	}
+	fn, ok := fnVal.(Fn)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("label: second parameter is not a function but %v", fnVal))
+	}
+	scope.Bind(fnSym.name, fn)
+
+	return fn, nil
+}
+
+// defun is a syntactic sugar for `label`
+func defun(scope Scope, args ...SExp) (SExp, error) {
+	if len(args) != 3 {
+		return nil, errors.New("defun: expects 3 arguments (function name, parameter list, function body)")
+	}
+	fn, err := label(scope, args[0], List{
+		first: Symbol{
+			name: "lambda",
+		},
+		second: List{
+			first:  args[1],
+			second: args[2],
+		},
+	})
+	// label binds function to the name for us
+	if err != nil {
+		return nil, fmt.Errorf("defun: %w", err)
+	}
+
+	return fn, nil
 }

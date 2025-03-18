@@ -10,48 +10,43 @@
 // The eval.lisp file is a copy from https://paulgraham.com/rootsoflisp.html.
 package core
 
-import (
-	"errors"
-	"fmt"
-)
-
-// SExpr defines S-expressions as an interface. It's implemented by: atom, list
-type SExpr interface {
-	// Eval is the only mandatory operation needed on expressions. Returns the expression value
-	Eval(scope Scope) (SExpr, error)
-	// Print is used to give expressions visual representation (P in REPL)
-	Print() string
+// SExp represents a S-expression (atom or a list).
+// Go doesn't have union types (well, it does with generics
+// but they are still useless since you can't have a slice of them)
+type SExp interface {
+	// Eval is the only mandatory operation for an S-expression
+	// line and pos are needed for helpful errors
+	Eval(scope Scope) (SExp, error)
+	// String returns a textual representation of a value (P in REPL)
+	String() string
 }
 
-// Fn is a universal function type
-type Fn func(scope Scope, args ...SExpr) (SExpr, error)
-
-// Scope stores known functions and values. Scope is lexical. This is
-// a so-called LISP-1 - name conflicts are not allowed and one symbol can
-// only be either a function or a value. Shadowing is allowed and you can
-// rebind a function symbol to a value and vice versa.
+// Scope stores values (functions are values) bound to names(aka symbols).
+// Scope is lexical. This is a so-called LISP-1 - name conflicts are not allowed
+// and one symbol can only be either a function or a value.
+// Shadowing is allowed and you can rebind a function symbol to a value and vice versa.
 type Scope struct {
 	parent *Scope // to enable lexical scope, shadowing and immutability
-	fns    map[string]Fn
-	vals   map[string]SExpr
+	vals   map[string]SExp
 }
 
-func (scope Scope) FindVal(sym string) (SExpr, error) {
+func (scope Scope) NewLayer() Scope {
+	return Scope{
+		parent: &scope,
+		vals:   map[string]SExp{},
+	}
+}
+
+func (scope Scope) Bind(s string, v SExp) {
+	scope.vals[s] = v
+}
+
+func (scope Scope) SymbolValue(sym string) (SExp, bool) {
 	for scope := &scope; scope != nil; scope = scope.parent {
 		if val, ok := scope.vals[sym]; ok {
-			return val, nil
+			return val, true
 		}
 	}
 
-	return nil, errors.New(fmt.Sprintf("symbol %s not found in scope", sym))
-}
-
-func (scope Scope) FindFn(sym string) (Fn, error) {
-	for scope := &scope; scope != nil; scope = scope.parent {
-		if fn, ok := scope.fns[sym]; ok {
-			return fn, nil
-		}
-	}
-
-	return nil, errors.New(fmt.Sprintf("function %s not found in scope", sym))
+	return nil, false
 }
