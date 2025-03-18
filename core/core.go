@@ -10,13 +10,13 @@
 // The eval.lisp file is a copy from https://paulgraham.com/rootsoflisp.html.
 package core
 
-// SExp represents a S-expression (atom or a list).
+// SExpr represents a S-expression (atom or a list).
 // Go doesn't have union types (well, it does with generics
 // but they are still useless since you can't have a slice of them)
-type SExp interface {
+type SExpr interface {
 	// Eval is the only mandatory operation for an S-expression
 	// line and pos are needed for helpful errors
-	Eval(scope Scope) (SExp, error)
+	Eval(scope Scope) (SExpr, error)
 	// String returns a textual representation of a value (P in REPL)
 	String() string
 }
@@ -27,21 +27,21 @@ type SExp interface {
 // Shadowing is allowed and you can rebind a function symbol to a value and vice versa.
 type Scope struct {
 	parent *Scope // to enable lexical scope, shadowing and immutability
-	vals   map[string]SExp
+	vals   map[string]SExpr
 }
 
 func (scope Scope) NewLayer() Scope {
 	return Scope{
 		parent: &scope,
-		vals:   map[string]SExp{},
+		vals:   map[string]SExpr{},
 	}
 }
 
-func (scope Scope) Bind(s string, v SExp) {
+func (scope Scope) Bind(s string, v SExpr) {
 	scope.vals[s] = v
 }
 
-func (scope Scope) SymbolValue(sym string) (SExp, bool) {
+func (scope Scope) SymbolValue(sym string) (SExpr, bool) {
 	for scope := &scope; scope != nil; scope = scope.parent {
 		if val, ok := scope.vals[sym]; ok {
 			return val, true

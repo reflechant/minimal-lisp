@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -13,18 +14,20 @@ var (
 // BuiltinScope returns the default environment for all evaluations that is always present.
 // It contains the 7 basic operators from "The Roots of LISP" + `lambda` + `defun`
 func BuiltinScope() Scope {
-	fns := map[string]SExp{
-		"quote": Fn{fn: quote},
-		"atom":  Fn{fn: atom},
-		"eq":    Fn{fn: eq},
-		"car":   Fn{fn: car},
-		"cdr":   Fn{fn: cdr},
-		"cons":  Fn{fn: cons},
-		"cond":  Fn{fn: cond},
+	fns := map[string]SExpr{
+		"quote": Fn{name: "quote", fn: quote},
+		"atom":  Fn{name: "atom", fn: atom},
+		"eq":    Fn{name: "eq", fn: eq},
+		"car":   Fn{name: "car", fn: car},
+		"cdr":   Fn{name: "cdr", fn: cdr},
+		"cons":  Fn{name: "cons", fn: cons},
+		"cond":  Fn{name: "cond", fn: cond},
 		// lambda and defun are placed here for convenience
-		"lambda": Fn{fn: lambda},
-		"label":  Fn{fn: label},
-		"defun":  Fn{fn: defun},
+		"lambda": Fn{name: "lambda", fn: lambda},
+		"label":  Fn{name: "label", fn: label},
+		"defun":  Fn{name: "defun", fn: defun},
+		// print - for a rudimentary REPL
+		"print": Fn{name: "print", fn: print},
 	}
 
 	return Scope{
@@ -38,7 +41,7 @@ func BuiltinScope() Scope {
 
 // quote returns it's parameter unchanged. (quote x) returns x.
 // Exists mostly to prevent list evaluation (which is their default behaviour)
-func quote(scope Scope, args ...SExp) (SExp, error) {
+func quote(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("quote: expects 1 argument, %d given", len(args)))
 	}
@@ -48,7 +51,7 @@ func quote(scope Scope, args ...SExp) (SExp, error) {
 
 // atom returns the atom t if the value of x is an atom or the empty
 // list. Otherwise it returns ().
-func atom(scope Scope, args ...SExp) (SExp, error) {
+func atom(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("atom: expects 1 argument, %d given", len(args)))
 	}
@@ -70,7 +73,7 @@ func atom(scope Scope, args ...SExp) (SExp, error) {
 
 // eq returns t if the values of x and y are the same atom or both the
 // empty list, and () otherwise
-func eq(scope Scope, args ...SExp) (SExp, error) {
+func eq(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 2 {
 		return nil, errors.New(fmt.Sprintf("eq: expects 2 arguments, got %d", len(args)))
 	}
@@ -105,7 +108,7 @@ func eq(scope Scope, args ...SExp) (SExp, error) {
 }
 
 // car expects it's only argument to be a list, and returns its first element
-func car(scope Scope, args ...SExp) (SExp, error) {
+func car(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("car: expects 1 argument, got %d", len(args)))
 	}
@@ -126,7 +129,7 @@ func car(scope Scope, args ...SExp) (SExp, error) {
 }
 
 // cdr expects its only argument to be a list, and returns everything after the first element (may be an empty list).
-func cdr(scope Scope, args ...SExp) (SExp, error) {
+func cdr(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 1 {
 		return nil, errors.New(fmt.Sprintf("cdr: expects 1 argument, got %d", len(args)))
 	}
@@ -151,7 +154,7 @@ func cdr(scope Scope, args ...SExp) (SExp, error) {
 //
 // (cons x y) expects the value of y to be a list, and returns a list
 // containing the value of x followed by the elements of the value of y
-func cons(scope Scope, args ...SExp) (SExp, error) {
+func cons(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 2 {
 		return nil, errors.New(fmt.Sprintf("cons: expects 2 arguments, got %d", len(args)))
 	}
@@ -181,7 +184,7 @@ func cons(scope Scope, args ...SExp) (SExp, error) {
 // expressions are evaluated in order until one returns t. When one is
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
-func cond(scope Scope, args ...SExp) (SExp, error) {
+func cond(scope Scope, args ...SExpr) (SExpr, error) {
 	for i, arg := range args {
 		p, ok := arg.(List)
 		if !ok {
@@ -209,7 +212,7 @@ func cond(scope Scope, args ...SExp) (SExp, error) {
 
 // lambda creates an anonymous function and returns it
 // example: (lambda (a b) (cons a b))
-func lambda(scope Scope, args ...SExp) (SExp, error) {
+func lambda(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) < 1 {
 		return nil, errors.New("lambda: expects at least 1 argument")
 	}
@@ -222,7 +225,9 @@ func lambda(scope Scope, args ...SExp) (SExp, error) {
 	if len(args) < 2 {
 		// if function body is empty, lambda will return an empty list
 		return Fn{
-			fn: func(scope Scope, args ...SExp) (SExp, error) {
+			line: paramList.line,
+			pos:  paramList.pos,
+			fn: func(scope Scope, args ...SExpr) (SExpr, error) {
 				return List{}, nil
 			},
 		}, nil
@@ -239,7 +244,9 @@ func lambda(scope Scope, args ...SExp) (SExp, error) {
 	}
 
 	return Fn{
-		fn: func(scope Scope, args ...SExp) (SExp, error) {
+		line: paramList.line,
+		pos:  paramList.pos,
+		fn: func(scope Scope, args ...SExpr) (SExpr, error) {
 			if len(params) != len(args) {
 				return nil, errors.New(fmt.Sprintf("lambda: arity error: expected %d parameters, got %d", len(params), len(args)))
 			}
@@ -249,7 +256,7 @@ func lambda(scope Scope, args ...SExp) (SExp, error) {
 			for i, a := range args {
 				v, err := a.Eval(scope)
 				if err != nil {
-					return nil, fmt.Errorf("lambda: error evaluating parameter #%d=%v", i+1, a, err)
+					return nil, fmt.Errorf("lambda: error evaluating parameter #%d=%v: %w", i+1, a, err)
 				}
 				scope.Bind(params[i].name, v)
 			}
@@ -261,7 +268,7 @@ func lambda(scope Scope, args ...SExp) (SExp, error) {
 }
 
 // label creates a named function in scope and returns it
-func label(scope Scope, args ...SExp) (SExp, error) {
+func label(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 2 {
 		return nil, errors.New("label: expects 2 arguments (function name and a lambda expression)")
 	}
@@ -285,7 +292,7 @@ func label(scope Scope, args ...SExp) (SExp, error) {
 }
 
 // defun is a syntactic sugar for `label`
-func defun(scope Scope, args ...SExp) (SExp, error) {
+func defun(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 3 {
 		return nil, errors.New("defun: expects 3 arguments (function name, parameter list, function body)")
 	}
@@ -304,4 +311,18 @@ func defun(scope Scope, args ...SExp) (SExp, error) {
 	}
 
 	return fn, nil
+}
+
+func print(scope Scope, args ...SExpr) (SExpr, error) {
+	argsValStrs := []string{}
+	for i, a := range args {
+		aVal, err := a.Eval(scope)
+		if err != nil {
+			return nil, fmt.Errorf("eval: argument #%d: %w", i, err)
+		}
+		argsValStrs = append(argsValStrs, aVal.String())
+	}
+
+	fmt.Println(strings.Join(argsValStrs, " "))
+	return nil, nil
 }

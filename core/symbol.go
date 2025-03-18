@@ -1,7 +1,9 @@
 package core
 
+import "fmt"
+
 // compile-time interface check
-var _ SExp = new(Symbol)
+var _ SExpr = new(Symbol)
 
 // Symbol represents itself. It's purely symbolical :)
 // For all intents and purposes of this implementation all atoms are symbols.
@@ -21,15 +23,13 @@ func NewSymbol(line, pos uint, val string) Symbol {
 }
 
 // Eval for an Atom returns it's value
-func (s Symbol) Eval(scope Scope) (SExp, error) {
+func (s Symbol) Eval(scope Scope) (SExpr, error) {
 	// lookup atom among bounded symbols in scope (that includes built-in functions)
 	if v, ok := scope.SymbolValue(s.name); ok {
 		return v, nil
 	}
 
-	// If not found, return atom itself.
-	// Actually it should be an "unbound symbol" error
-	return s, nil
+	return nil, fmt.Errorf("unbound symbol %v", s.name)
 }
 
 func (s Symbol) String() string {

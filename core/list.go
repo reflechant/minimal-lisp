@@ -7,7 +7,7 @@ import (
 )
 
 // compile-time interface checks
-var _ SExp = new(List)
+var _ SExpr = new(List)
 
 // List represents one "cons cell" or "pair" from which lists are
 // constructed.  Another way of implementing lists would be to use binary
@@ -15,14 +15,14 @@ var _ SExp = new(List)
 // performant.
 type List struct {
 	// first item in pair, traditionally called "car"
-	first SExp
+	first SExpr
 	// second item in pair, traditionally called "cdr"
-	second SExp
+	second SExpr
 	line   uint
 	pos    uint
 }
 
-func NewList(line, pos uint, els ...SExp) List {
+func NewList(line, pos uint, els ...SExpr) List {
 	var prev List
 	for i := len(els) - 1; i >= 0; i-- {
 		p := List{
@@ -41,7 +41,7 @@ func NewList(line, pos uint, els ...SExp) List {
 // That's why we let the function to evaluate the arguments because in some cases
 // they shouldn't be evaluated (e.g. parameter list for lambda)
 // See "The Roots of LISP" for details.
-func (l List) Eval(scope Scope) (SExp, error) {
+func (l List) Eval(scope Scope) (SExpr, error) {
 	if l.IsEmpty() {
 		// empty list evaluates to itself
 		return l, nil
@@ -58,12 +58,12 @@ func (l List) Eval(scope Scope) (SExp, error) {
 	}
 
 	// get the parameters
-	args := []SExp{}
+	args := []SExpr{}
 
 	rest := l.Rest()
 	switch v := rest.(type) {
 	case List:
-
+		args = append(args, v.Flatten()...)
 	default:
 		args = append(args, v)
 	}
@@ -81,23 +81,23 @@ func (l List) IsEmpty() bool {
 	return l.first == nil
 }
 
-func (l List) First() SExp {
+func (l List) First() SExpr {
 	return l.first
 }
 
-func (l List) Rest() SExp {
+func (l List) Rest() SExpr {
 	return l.second
 }
 
-func (l List) Cons(v SExp) List {
+func (l List) Cons(v SExpr) List {
 	return List{
 		first:  v,
 		second: l,
 	}
 }
 
-func (l List) Items() iter.Seq[SExp] {
-	return func(yield func(SExp) bool) {
+func (l List) Items() iter.Seq[SExpr] {
+	return func(yield func(SExpr) bool) {
 		for !l.IsEmpty() {
 			if !yield(l.First()) {
 				return
@@ -117,19 +117,24 @@ func (l List) Items() iter.Seq[SExp] {
 	}
 }
 
+func (l List) Flatten() []SExpr {
+	items := []SExpr{}
+	for item := range l.Items() {
+		items = append(items, item)
+	}
+
+	return items
+}
+
 func (l List) String() string {
 	var b strings.Builder
 	b.WriteRune('(')
 
-	if l.first != nil {
-		b.WriteString(l.first.String())
-		b.WriteRune(' ')
+	itemStrs := []string{}
+	for item := range l.Items() {
+		itemStrs = append(itemStrs, item.String())
 	}
-
-	if l.second != nil {
-		b.WriteString(l.second.String())
-		b.WriteRune(' ')
-	}
+	b.WriteString(strings.Join(itemStrs, " "))
 
 	b.WriteRune(')')
 

@@ -28,11 +28,10 @@ func main() {
 
 	scope := core.BuiltinScope()
 	for _, e := range exprs {
-		result, err := e.Eval(scope)
+		_, err := e.Eval(scope)
 		if err != nil {
 			log.Fatal(fmt.Errorf("%s: %w", srcName, err))
 		}
-		fmt.Println(result)
 	}
 }
 
