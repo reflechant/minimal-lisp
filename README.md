@@ -15,8 +15,8 @@ an *interpreter for this language written in itself*.
 It's considered a "rite of passage" moment for compiled languages to write
 the compiler in itself. For interpreted languages it's similar.
 
-The whole point of the paper was to show the beauty and methematical
-profundity of LISP which achieves this goal by using just 7 primitive operators.
+The whole point of the paper was to show the beauty and mathematical
+profundity of LISP which achieves this goal by using just 7 primitive operators!
 
 LISP is like the coordinate system of programming.
 If you have X, Y and Z you don't need any more axes for a 3-dimensional space.
