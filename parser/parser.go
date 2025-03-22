@@ -55,6 +55,13 @@ func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 			msg:  fmt.Sprintf("unexpected token %v", tok.Text),
 		}
 	case lexer.Quote:
+		if start == len(tokens)-1 {
+			return nil, start + 1, Error{
+				line: tok.Line,
+				pos:  tok.Pos,
+				msg:  fmt.Sprintf("unexpected end of input: quote needs an argument"),
+			}
+		}
 		quotedExpr, next, err := parse(tokens, start+1)
 		if err != nil {
 			return nil, next, err
@@ -75,8 +82,17 @@ func parse(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 }
 
 func parseList(tokens []lexer.Token, start int) (core.SExpr, int, error) {
-	// start points to '('
+	// start points to '(' which is guaranteed to exist by the caller
 	line, pos := tokens[start].Line, tokens[start].Pos
+
+	if start == len(tokens)-1 {
+		// if we're already at the end on input
+		return nil, start + 1, Error{
+			line: line,
+			pos:  pos,
+			msg:  fmt.Sprintf("unexpected end of input: list opened at %d:%d was not closed", line, pos),
+		}
+	}
 
 	items := []core.SExpr{}
 	i := start + 1
@@ -97,8 +113,8 @@ func parseList(tokens []lexer.Token, start int) (core.SExpr, int, error) {
 	}
 
 	return nil, i + 1, Error{
-		line: tokens[i].Line,
-		pos:  tokens[i].Pos,
-		msg:  fmt.Sprintf("list opened at %d:%d was not closed", line, pos),
+		line: tokens[i-1].Line,
+		pos:  tokens[i-1].Pos,
+		msg:  fmt.Sprintf("unexpected end of input: list opened at %d:%d was not closed", line, pos),
 	}
 }

@@ -41,13 +41,13 @@ func TestEmptyList(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  1,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  RParen,
 			Line: 1,
 			Pos:  2,
-			Text: "",
+			Text: ")",
 		},
 	}
 	tokens, err := Tokenize(strings.NewReader(input))
@@ -62,7 +62,7 @@ func TestSingleAtomList(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  1,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  Atom,
@@ -74,7 +74,7 @@ func TestSingleAtomList(t *testing.T) {
 			Typ:  RParen,
 			Line: 1,
 			Pos:  5,
-			Text: "",
+			Text: ")",
 		},
 	}
 	tokens, err := Tokenize(strings.NewReader(input))
@@ -89,7 +89,7 @@ func TestMultiAtomList(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  1,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  Atom,
@@ -107,7 +107,7 @@ func TestMultiAtomList(t *testing.T) {
 			Typ:  RParen,
 			Line: 1,
 			Pos:  9,
-			Text: "",
+			Text: ")",
 		},
 	}
 	tokens, err := Tokenize(strings.NewReader(input))
@@ -122,25 +122,25 @@ func TestNestedEmptyLists(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  1,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  LParen,
 			Line: 1,
 			Pos:  3,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  RParen,
 			Line: 1,
 			Pos:  4,
-			Text: "",
+			Text: ")",
 		},
 		{
 			Typ:  RParen,
 			Line: 1,
 			Pos:  5,
-			Text: "",
+			Text: ")",
 		},
 	}
 	tokens, err := Tokenize(strings.NewReader(input))
@@ -155,7 +155,7 @@ func TestNestedNonEmptyLists(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  1,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  Atom,
@@ -167,7 +167,7 @@ func TestNestedNonEmptyLists(t *testing.T) {
 			Typ:  LParen,
 			Line: 1,
 			Pos:  6,
-			Text: "",
+			Text: "(",
 		},
 		{
 			Typ:  Atom,
@@ -179,7 +179,7 @@ func TestNestedNonEmptyLists(t *testing.T) {
 			Typ:  RParen,
 			Line: 1,
 			Pos:  10,
-			Text: "",
+			Text: ")",
 		},
 		{
 			Typ:  Atom,
@@ -191,7 +191,7 @@ func TestNestedNonEmptyLists(t *testing.T) {
 			Typ:  RParen,
 			Line: 1,
 			Pos:  15,
-			Text: "",
+			Text: ")",
 		},
 	}
 	tokens, err := Tokenize(strings.NewReader(input))

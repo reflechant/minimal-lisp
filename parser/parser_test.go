@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -59,5 +60,43 @@ func TestMultiLine(t *testing.T) {
 	}
 	for i := range expected {
 		assert.Equal(t, expected[i].String(), exprs[i].String())
+	}
+}
+
+func TestSyntaxErrors(t *testing.T) {
+	cases := []struct {
+		input          string
+		expectedErrMsg string
+	}{
+		{
+			input:          "(",
+			expectedErrMsg: "list opened at 1:1 was not closed",
+		},
+		{
+			input:          "(quote 2",
+			expectedErrMsg: "list opened at 1:1 was not closed",
+		},
+		{
+			input:          ")",
+			expectedErrMsg: "unexpected token )",
+		},
+		{
+			input:          "quote 2)",
+			expectedErrMsg: "unexpected token )",
+		},
+		{
+			input:          "'",
+			expectedErrMsg: "unexpected end of input: quote needs an argument",
+		},
+	}
+
+	for tc := range slices.Values(cases) {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			rdr := strings.NewReader(tc.input)
+			_, err := Parse("test", rdr)
+			require.ErrorContains(t, err, tc.expectedErrMsg)
+
+		})
 	}
 }

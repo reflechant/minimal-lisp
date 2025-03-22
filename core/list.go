@@ -42,6 +42,7 @@ func NewList(line, pos uint, els ...SExpr) List {
 // they shouldn't be evaluated (e.g. parameter list for lambda)
 // See "The Roots of LISP" for details.
 func (l List) Eval(scope Scope) (SExpr, error) {
+	// fmt.Println(l)
 	if l.IsEmpty() {
 		// empty list evaluates to itself
 		return l, nil
@@ -67,6 +68,7 @@ func (l List) Eval(scope Scope) (SExpr, error) {
 	default:
 		args = append(args, v)
 	}
+	// fmt.Println(fnSExpr, ":", len(args), args)
 
 	// pass arguments to the Fn (unevaluated)
 	result, err := fn.Invoke(scope, args...)

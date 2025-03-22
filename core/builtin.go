@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	true_  = Symbol{name: "t"}
-	false_ = List{}
+	True  = Symbol{name: "t"}
+	False = List{}
 )
 
 // BuiltinScope returns the default environment for all evaluations that is always present.
@@ -61,14 +61,14 @@ func atom(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	switch v := val.(type) {
 	case Symbol:
-		return true_, nil
+		return True, nil
 	case List:
 		if v.IsEmpty() {
-			return true_, nil
+			return True, nil
 		}
 	}
 
-	return false_, nil
+	return False, nil
 }
 
 // eq returns t if the values of x and y are the same atom or both the
@@ -92,19 +92,19 @@ func eq(scope Scope, args ...SExpr) (SExpr, error) {
 	// (the only atoms present now are symbols)
 	a1, ok1 := arg1.(Symbol)
 	a2, ok2 := arg2.(Symbol)
-	if ok1 && ok2 && a1 == a2 {
-		return true_, nil
+	if ok1 && ok2 && a1.name == a2.name {
+		return True, nil
 	}
 
 	// if both are empty lists return t
 	l1, ok1 := arg1.(List)
 	l2, ok2 := arg2.(List)
 	if ok1 && ok2 && l1.IsEmpty() && l2.IsEmpty() {
-		return true_, nil
+		return True, nil
 	}
 
 	// return '()
-	return false_, nil
+	return False, nil
 }
 
 // car expects it's only argument to be a list, and returns its first element
@@ -169,7 +169,7 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	rest, ok := arg2.(List)
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("cons: 2nd argument must be a list, got %v", args[1]))
+		return nil, errors.New(fmt.Sprintf("cons: 2nd argument must be a list, got %v", arg2))
 	}
 
 	return List{
@@ -185,29 +185,40 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
 func cond(scope Scope, args ...SExpr) (SExpr, error) {
+	fmt.Println("cond", len(args), args)
 	for i, arg := range args {
+		fmt.Printf("arg %T %v\n", arg, arg)
 		p, ok := arg.(List)
 		if !ok {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is not a list, it's %v", i+1, args[i]))
 		}
 		pred := p.First()
+		fmt.Println("predicate", pred)
 		if pred == nil {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a predicate", i+1))
 		}
 		val := p.Rest()
+		fmt.Println("rest", val)
 		if val == nil {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a return value", i+1))
 		}
 		condition, err := pred.Eval(scope)
+		fmt.Printf("condition: %T, %v\n", condition, condition)
 		if err != nil {
 			return nil, fmt.Errorf("cond: evaluation error in condition #%d: %w", i+1, err)
 		}
-		if condition == true_ {
-			return val.Eval(scope)
+		switch v := condition.(type) {
+		case Symbol:
+			if v.name == True.name {
+				fmt.Println("condition is true")
+				x, _ := val.Eval(scope)
+				fmt.Printf("returning: %T %v", x, x)
+				return val.Eval(scope)
+			}
 		}
 	}
 
-	return false_, nil
+	return False, nil
 }
 
 // lambda creates an anonymous function and returns it
