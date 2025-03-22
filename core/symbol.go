@@ -29,7 +29,7 @@ func (s Symbol) Eval(scope Scope) (SExpr, error) {
 		return v, nil
 	}
 
-	return nil, fmt.Errorf("unbound symbol %v", s.name)
+	return nil, fmt.Errorf("%d:%d: unbound symbol %v", s.line, s.pos, s.name)
 }
 
 func (s Symbol) String() string {

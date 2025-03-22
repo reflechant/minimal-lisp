@@ -9,10 +9,9 @@ import (
 // compile-time interface checks
 var _ SExpr = new(List)
 
-// List represents one "cons cell" or "pair" from which lists are
-// constructed.  Another way of implementing lists would be to use binary
-// trees. It's interesting to check which is more convenient and
-// performant.
+// List represents a list S-expression as one "cons cell" or "pair".
+// Another way of implementing lists would be to use binary trees.
+// It's interesting to check which is more convenient and performant.
 type List struct {
 	// first item in pair, traditionally called "car"
 	first SExpr
@@ -48,8 +47,10 @@ func (l List) Eval(scope Scope) (SExpr, error) {
 		return l, nil
 	}
 
+	items := l.Flatten()
+
 	// get the function to evaluate
-	fnSExpr, err := l.First().Eval(scope)
+	fnSExpr, err := items[0].Eval(scope)
 	if err != nil {
 		return nil, l.error("", err)
 	}
@@ -58,20 +59,8 @@ func (l List) Eval(scope Scope) (SExpr, error) {
 		return nil, l.error(fmt.Sprintf("can not call `%v` as a function", fnSExpr), nil)
 	}
 
-	// get the parameters
-	args := []SExpr{}
-
-	rest := l.Rest()
-	switch v := rest.(type) {
-	case List:
-		args = append(args, v.Flatten()...)
-	default:
-		args = append(args, v)
-	}
-	// fmt.Println(fnSExpr, ":", len(args), args)
-
 	// pass arguments to the Fn (unevaluated)
-	result, err := fn.Invoke(scope, args...)
+	result, err := fn.Invoke(scope, items[1:]...)
 	if err != nil {
 		return nil, l.error("", err)
 	}
@@ -87,8 +76,24 @@ func (l List) First() SExpr {
 	return l.first
 }
 
-func (l List) Rest() SExpr {
+func (l List) Second() SExpr {
 	return l.second
+}
+
+// Rest returns an iterator of all list elements after the first
+func (l List) Rest() iter.Seq[SExpr] {
+	if l.second == nil {
+		return func(yield func(SExpr) bool) {}
+	}
+	if v, ok := l.second.(List); ok {
+		return v.Items()
+	}
+
+	return func(yield func(SExpr) bool) {
+		if !yield(l.second) {
+			return
+		}
+	}
 }
 
 func (l List) Cons(v SExpr) List {
@@ -105,10 +110,10 @@ func (l List) Items() iter.Seq[SExpr] {
 				return
 			}
 
-			if l.Rest() == nil {
+			if l.second == nil {
 				return
 			}
-			next, ok := l.Rest().(List)
+			next, ok := l.second.(List)
 			if !ok {
 				if !yield(next) {
 					return

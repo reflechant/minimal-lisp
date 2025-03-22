@@ -2,6 +2,10 @@
 ; Assumes only quote, atom, eq, cons, car, cdr, cond.
 ; Bug reports to lispcode@paulgraham.com.
 
+; This file is copied from "The Roots of Lisp" by Paul Graham
+; with my additions (caar/cadar/... definitions + some code
+; to prove that `eval.` defined here indeed works)
+
 (defun null. (x)
   (eq x '()))
 
@@ -25,6 +29,24 @@
         ((and. (not. (atom x)) (not. (atom y)))
          (cons (list. (car x) (car y))
                (pair. (cdr x) (cdr y))))))
+
+; I didn't want to introduce the caar/cadar/etc. hackery into the interpreter itself
+; so I define them explicitly here
+; START of additions
+
+(defun caar (x)
+  (car (car x)))
+
+(defun cadar (x)
+  (car (cdr (car x))))
+
+(defun cadr (x)
+  (car (cdr x)))
+
+(defun caddr (x)
+  (car (cdr (cdr x))))
+
+; END of additions
 
 (defun assoc. (x y)
   (cond ((eq (caar y) x) (cadar y))
@@ -65,8 +87,34 @@
         ('t (cons (eval.  (car m) a)
                   (evlis. (cdr m) a)))))
 
-;;;;;;;;;;;;;;;
-(print (eval.
- 'x
- '((x a) (y b))
- ))
+;; START of util code to try to use eval.
+;; this expression is supposed to return a
+;; (example taken from p.9 of "The Roots of LISP")
+(print
+  (eval.
+  'x
+  '((x a) (y b))
+  )
+)
+
+
+;; supposed to print "expected-result"
+(print
+ (cond
+   ((eq 'a 'b) 'not-equal)
+   (() 'false)
+   ('t 'expected-result)
+   )
+ )
+
+;; supposed to do the same but using eval.
+(print
+ (eval.
+ '(cond
+   ((eq 'a 'b) 'not-equal)
+   (() 'false)
+   ('t 'expected-result)
+   )
+ '()
+ )
+ )

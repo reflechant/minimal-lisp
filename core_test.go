@@ -145,19 +145,23 @@ func TestEval(t *testing.T) {
 			input:    "(cond ((eq 'a 'a) 'b))",
 			expected: "b",
 		},
-		// {
-		// 	input:    "(cond 'x)",
-		// 	expected: "()",
-		// },
-		// {
-		// 	input:          "(cond cond)",
-		// 	expectedErrMsg: "cond: argument #1 is not a list",
-		// },
+		{
+			input:    "(cond 'x)",
+			expected: "()",
+		},
+		{
+			input:          "(cond cond)",
+			expectedErrMsg: "cond: argument #1 is not a list",
+		},
 
-		// {
-		// 	input:    "(cond)",
-		// 	expected: "()",
-		// },
+		{
+			input:    "(cond)",
+			expected: "()",
+		},
+		{
+			input:    "(cond ((eq 'a 'b) 'first) ((atom 'a) 'second))",
+			expected: "second",
+		},
 	}
 
 	for tc := range slices.Values(cases) {
@@ -178,4 +182,18 @@ func TestEval(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLambda(t *testing.T) {
+	const input = "((lambda (x) (cons x '(b))) 'a)"
+	const expected = "(a b)"
+
+	rdr := strings.NewReader(input)
+	exprs, err := parser.Parse("test", rdr)
+	require.NoError(t, err)
+	assert.Len(t, exprs, 1)
+	result, err := exprs[0].Eval(core.BuiltinScope())
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, result.String())
 }

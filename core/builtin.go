@@ -143,11 +143,12 @@ func cdr(scope Scope, args ...SExpr) (SExpr, error) {
 		return nil, errors.New(fmt.Sprintf("cdr: argument must be a list, got %v", args[0]))
 	}
 
-	if l.Rest() == nil {
-		return List{}, nil
+	second := l.Second()
+	if second != nil {
+		return second, nil
 	}
 
-	return l.Rest(), nil
+	return List{}, nil
 }
 
 // cons adds an element to the front of a list.
@@ -185,34 +186,41 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
 func cond(scope Scope, args ...SExpr) (SExpr, error) {
-	fmt.Println("cond", len(args), args)
+	// fmt.Println("cond", len(args), args)
 	for i, arg := range args {
-		fmt.Printf("arg %T %v\n", arg, arg)
+		// fmt.Printf("arg %T %v\n", arg, arg)
 		p, ok := arg.(List)
 		if !ok {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is not a list, it's %v", i+1, args[i]))
 		}
-		pred := p.First()
-		fmt.Println("predicate", pred)
-		if pred == nil {
+
+		items := p.Flatten()
+		if len(items) == 0 {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a predicate", i+1))
 		}
-		val := p.Rest()
-		fmt.Println("rest", val)
-		if val == nil {
+		if len(items) == 1 {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is missing a return value", i+1))
 		}
+		if len(items) > 2 {
+			return nil, errors.New(fmt.Sprintf("cond: argument #%d must be a list of 2 elements, has %d", i+1, len(items)))
+		}
+
+		pred := items[0]
+		// fmt.Println("predicate", pred)
+		val := items[1]
+		// fmt.Println("rest", val)
+
 		condition, err := pred.Eval(scope)
-		fmt.Printf("condition: %T, %v\n", condition, condition)
+		// fmt.Printf("condition: %T, %v\n", condition, condition)
 		if err != nil {
 			return nil, fmt.Errorf("cond: evaluation error in condition #%d: %w", i+1, err)
 		}
 		switch v := condition.(type) {
 		case Symbol:
 			if v.name == True.name {
-				fmt.Println("condition is true")
-				x, _ := val.Eval(scope)
-				fmt.Printf("returning: %T %v", x, x)
+				// fmt.Println("condition is true")
+				// x, _ := val.Eval(scope)
+				// fmt.Printf("returning: %T %v", x, x)
 				return val.Eval(scope)
 			}
 		}
@@ -297,6 +305,11 @@ func label(scope Scope, args ...SExpr) (SExpr, error) {
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("label: second parameter is not a function but %v", fnVal))
 	}
+	// TODO: is it possible to make it nicer than this patching?
+	fn.name = fnSym.name
+	fn.line = fnSym.line
+	fn.pos = fnSym.pos
+
 	scope.Bind(fnSym.name, fn)
 
 	return fn, nil
@@ -307,14 +320,12 @@ func defun(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) != 3 {
 		return nil, errors.New("defun: expects 3 arguments (function name, parameter list, function body)")
 	}
+
 	fn, err := label(scope, args[0], List{
 		first: Symbol{
 			name: "lambda",
 		},
-		second: List{
-			first:  args[1],
-			second: args[2],
-		},
+		second: NewList(0, 0, args[1:]...),
 	})
 	// label binds function to the name for us
 	if err != nil {

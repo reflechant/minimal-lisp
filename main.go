@@ -28,7 +28,13 @@ func main() {
 
 	scope := core.BuiltinScope()
 	for _, e := range exprs {
-		_, err := e.Eval(scope)
+		result, err := e.Eval(scope)
+		if result != nil {
+			fmt.Println(result.String())
+		} else {
+			fmt.Println("nil")
+		}
+
 		if err != nil {
 			log.Fatal(fmt.Errorf("%s: %w", srcName, err))
 		}
