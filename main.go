@@ -30,9 +30,9 @@ func main() {
 	for _, e := range exprs {
 		result, err := e.Eval(scope)
 		if result != nil {
-			fmt.Println(result.String())
+			fmt.Println("returned:", result.String())
 		} else {
-			fmt.Println("nil")
+			fmt.Println("returned: nil")
 		}
 
 		if err != nil {
