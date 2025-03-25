@@ -2,7 +2,6 @@ package repl
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -26,11 +25,8 @@ func REPL(scope core.Scope, in io.Reader, out io.Writer) error {
 		rdr := strings.NewReader(line)
 		exprs, err := parser.Parse("repl", rdr)
 		if err != nil {
-			_, err := out.Write(fmt.Appendf(nil, "error parsing REPL input: %v\n", err))
+			_, err := out.Write(fmt.Appendf(nil, "%v\n", err))
 			if err != nil {
-				if errors.Is(err, io.EOF) {
-					return nil
-				}
 				return err
 			}
 		}
@@ -38,16 +34,20 @@ func REPL(scope core.Scope, in io.Reader, out io.Writer) error {
 		for _, e := range exprs {
 			result, err := e.Eval(scope)
 			if err != nil {
-				out.Write(fmt.Appendf(nil, "error evaluating REPL input: %v\n", err))
+				_, err := out.Write(fmt.Appendf(nil, "%v\n", err))
+				if err != nil {
+					return err
+				}
 				continue
 			}
 
 			if result != nil {
-				out.Write([]byte(result.String()))
-				out.Write([]byte{'\n'})
+				_, err := out.Write(fmt.Appendf(nil, "%v\n", result.String()))
+				if err != nil {
+					return err
+				}
 				continue
 			}
-			out.Write([]byte("nil\n"))
 		}
 
 		// print the REPL prompt

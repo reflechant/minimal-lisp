@@ -325,7 +325,7 @@ func defun(scope Scope, args ...SExpr) (SExpr, error) {
 		first: Symbol{
 			name: "lambda",
 		},
-		second: NewList(0, 0, args[1:]...),
+		second: NewList("", 0, 0, args[1:]...),
 	})
 	// label binds function to the name for us
 	if err != nil {

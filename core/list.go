@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"iter"
+	"strconv"
 	"strings"
 )
 
@@ -16,17 +17,21 @@ type List struct {
 	// first item in pair, traditionally called "car"
 	first SExpr
 	// second item in pair, traditionally called "cdr"
-	second SExpr
-	line   uint
-	pos    uint
+	second  SExpr
+	srcName string
+	line    uint
+	pos     uint
 }
 
-func NewList(line, pos uint, els ...SExpr) List {
+func NewList(srcName string, line, pos uint, els ...SExpr) List {
 	var prev List
 	for i := len(els) - 1; i >= 0; i-- {
 		p := List{
-			first:  els[i],
-			second: prev,
+			first:   els[i],
+			second:  prev,
+			srcName: srcName,
+			line:    line,
+			pos:     pos,
 		}
 		prev = p
 	}
@@ -150,6 +155,7 @@ func (l List) String() string {
 
 func (l List) error(msg string, err error) ListEvalError {
 	return ListEvalError{
+		srcName:    l.srcName,
 		line:       l.line,
 		pos:        l.pos,
 		wrappedErr: err,
@@ -158,6 +164,7 @@ func (l List) error(msg string, err error) ListEvalError {
 }
 
 type ListEvalError struct {
+	srcName    string
 	line       uint
 	pos        uint
 	wrappedErr error
@@ -165,24 +172,26 @@ type ListEvalError struct {
 }
 
 func (e ListEvalError) Error() string {
-	var errBuilder strings.Builder
+	var b strings.Builder
 
-	if e.line > 0 && e.pos > 0 {
-		errBuilder.WriteString(fmt.Sprintf("%d:%d ", e.line, e.pos))
-	}
-
-	errBuilder.WriteString("evaluation error: ")
+	b.WriteString("evaluation error at ")
+	b.WriteString(e.srcName)
+	b.WriteByte(':')
+	b.WriteString(strconv.Itoa(int(e.line)))
+	b.WriteByte(':')
+	b.WriteString(strconv.Itoa(int(e.pos)))
 
 	if e.msg != "" {
-		errBuilder.WriteString(e.msg)
-		errBuilder.WriteString(": ")
+		b.WriteString(": ")
+		b.WriteString(e.msg)
 	}
 
 	if e.wrappedErr != nil {
-		errBuilder.WriteString(e.wrappedErr.Error())
+		b.WriteString(": ")
+		b.WriteString(e.wrappedErr.Error())
 	}
 
-	return errBuilder.String()
+	return b.String()
 }
 
 func (e ListEvalError) Unwrap() error {
