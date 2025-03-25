@@ -87,34 +87,3 @@
         ('t (cons (eval.  (car m) a)
                   (evlis. (cdr m) a)))))
 
-;; START of util code to try to use eval.
-;; this expression is supposed to return a
-;; (example taken from p.9 of "The Roots of LISP")
-(print
-  (eval.
-  'x
-  '((x a) (y b))
-  )
-)
-
-
-;; supposed to print "expected-result"
-(print
- (cond
-   ((eq 'a 'b) 'not-equal)
-   (() 'false)
-   ('t 'expected-result)
-   )
- )
-
-;; supposed to do the same but using eval.
-(print
- (eval.
- '(cond
-   ((eq 'a 'b) 'not-equal)
-   (() 'false)
-   ('t 'expected-result)
-   )
- '()
- )
- )

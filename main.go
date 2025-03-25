@@ -3,41 +3,48 @@ package main
 import (
 	"embed"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
 
 	"github.com/reflechant/minimal-lisp/core"
 	"github.com/reflechant/minimal-lisp/parser"
+	"github.com/reflechant/minimal-lisp/repl"
 )
 
 //go:embed core.lisp
 
 var fs embed.FS
 
-func main() {
-	srcName := "core.lisp"
-	file, err := fs.Open(srcName)
+func Import(scope core.Scope, srcName string, src io.Reader) error {
+	exprs, err := parser.Parse(srcName, src)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("error ", err)
 	}
-	exprs, err := parser.Parse(srcName, file)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	scope := core.BuiltinScope()
 	for _, e := range exprs {
-		result, err := e.Eval(scope)
-		if result != nil {
-			fmt.Println("returned:", result.String())
-		} else {
-			fmt.Println("returned: nil")
-		}
-
+		_, err := e.Eval(scope)
 		if err != nil {
-			log.Fatal(fmt.Errorf("%s: %w", srcName, err))
+			return err
 		}
+	}
+
+	return nil
+}
+
+func main() {
+	file, err := fs.Open("core.lisp")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	scope := core.BuiltinScope()
+	err = Import(scope, "core.lisp", file)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = repl.REPL(scope, os.Stdin, os.Stdout)
+	if err != nil {
+		log.Fatalln(err)
 	}
 }
 
