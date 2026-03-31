@@ -186,9 +186,7 @@ func cons(scope Scope, args ...SExpr) (SExpr, error) {
 // found, the value of the corresponding e expression is returned as the
 // value of the whole cond expression.
 func cond(scope Scope, args ...SExpr) (SExpr, error) {
-	// fmt.Println("cond", len(args), args)
 	for i, arg := range args {
-		// fmt.Printf("arg %T %v\n", arg, arg)
 		p, ok := arg.(List)
 		if !ok {
 			return nil, errors.New(fmt.Sprintf("cond: argument #%d is not a list, it's %v", i+1, args[i]))
@@ -206,21 +204,15 @@ func cond(scope Scope, args ...SExpr) (SExpr, error) {
 		}
 
 		pred := items[0]
-		// fmt.Println("predicate", pred)
 		val := items[1]
-		// fmt.Println("rest", val)
 
 		condition, err := pred.Eval(scope)
-		// fmt.Printf("condition: %T, %v\n", condition, condition)
 		if err != nil {
 			return nil, fmt.Errorf("cond: evaluation error in condition #%d: %w", i+1, err)
 		}
 		switch v := condition.(type) {
 		case Symbol:
 			if v.name == True.name {
-				// fmt.Println("condition is true")
-				// x, _ := val.Eval(scope)
-				// fmt.Printf("returning: %T %v", x, x)
 				return val.Eval(scope)
 			}
 		}
@@ -244,8 +236,9 @@ func lambda(scope Scope, args ...SExpr) (SExpr, error) {
 	if len(args) < 2 {
 		// if function body is empty, lambda will return an empty list
 		return Fn{
-			line: paramList.line,
-			pos:  paramList.pos,
+			srcName: paramList.srcName,
+			line:    paramList.line,
+			pos:     paramList.pos,
 			fn: func(scope Scope, args ...SExpr) (SExpr, error) {
 				return List{}, nil
 			},
@@ -263,8 +256,9 @@ func lambda(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 
 	return Fn{
-		line: paramList.line,
-		pos:  paramList.pos,
+		srcName: paramList.srcName,
+		line:    paramList.line,
+		pos:     paramList.pos,
 		fn: func(scope Scope, args ...SExpr) (SExpr, error) {
 			if len(params) != len(args) {
 				return nil, errors.New(fmt.Sprintf("lambda: arity error: expected %d parameters, got %d", len(params), len(args)))
@@ -307,6 +301,7 @@ func label(scope Scope, args ...SExpr) (SExpr, error) {
 	}
 	// TODO: is it possible to make it nicer than this patching?
 	fn.name = fnSym.name
+	fn.srcName = fnSym.srcName
 	fn.line = fnSym.line
 	fn.pos = fnSym.pos
 
@@ -321,12 +316,19 @@ func defun(scope Scope, args ...SExpr) (SExpr, error) {
 		return nil, errors.New("defun: expects 3 arguments (function name, parameter list, function body)")
 	}
 
-	fn, err := label(scope, args[0], List{
-		first: Symbol{
-			name: "lambda",
-		},
-		second: NewList("", 0, 0, args[1:]...),
-	})
+	// Carry the function name's source location into the synthetic lambda list
+	// so that errors inside the function body trace back to the defun call site.
+	var srcName string
+	var line, pos uint
+	if sym, ok := args[0].(Symbol); ok {
+		srcName, line, pos = sym.srcName, sym.line, sym.pos
+	}
+
+	fn, err := label(scope, args[0], NewList(
+		srcName, line, pos,
+		Symbol{name: "lambda"},
+		args[1], args[2],
+	))
 	// label binds function to the name for us
 	if err != nil {
 		return nil, fmt.Errorf("defun: %w", err)

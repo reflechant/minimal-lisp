@@ -18,9 +18,9 @@ import (
 var fs embed.FS
 
 func Import(scope core.Scope, srcName string, src io.Reader) error {
-	exprs, err := parser.Parse(srcName, src)
+	exprs, err := parser.Parse(srcName, 0, src)
 	if err != nil {
-		return fmt.Errorf("error ", err)
+		return fmt.Errorf("%s: %w", srcName, err)
 	}
 	for _, e := range exprs {
 		_, err := e.Eval(scope)

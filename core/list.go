@@ -46,7 +46,6 @@ func NewList(srcName string, line, pos uint, els ...SExpr) List {
 // they shouldn't be evaluated (e.g. parameter list for lambda)
 // See "The Roots of LISP" for details.
 func (l List) Eval(scope Scope) (SExpr, error) {
-	// fmt.Println(l)
 	if l.IsEmpty() {
 		// empty list evaluates to itself
 		return l, nil
@@ -174,12 +173,8 @@ type ListEvalError struct {
 func (e ListEvalError) Error() string {
 	var b strings.Builder
 
-	b.WriteString("evaluation error at ")
-	b.WriteString(e.srcName)
-	b.WriteByte(':')
-	b.WriteString(strconv.Itoa(int(e.line)))
-	b.WriteByte(':')
-	b.WriteString(strconv.Itoa(int(e.pos)))
+	b.WriteString(location(e.srcName, e.line, e.pos))
+	b.WriteString(": evaluation error")
 
 	if e.msg != "" {
 		b.WriteString(": ")
@@ -196,4 +191,17 @@ func (e ListEvalError) Error() string {
 
 func (e ListEvalError) Unwrap() error {
 	return e.wrappedErr
+}
+
+// location formats a source location for error messages.
+// When srcName is empty and line/col are zero (dynamically constructed code),
+// it returns "<dynamic>" so the user knows there is no source to point to.
+func location(srcName string, line, pos uint) string {
+	if srcName == "" && line == 0 && pos == 0 {
+		return "<dynamic>"
+	}
+	if srcName == "" {
+		return fmt.Sprintf("<dynamic>:%s:%s", strconv.Itoa(int(line)), strconv.Itoa(int(pos)))
+	}
+	return fmt.Sprintf("%s:%d:%d", srcName, line, pos)
 }

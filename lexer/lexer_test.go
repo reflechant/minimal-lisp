@@ -16,7 +16,7 @@ func TestSingleLetterAtom(t *testing.T) {
 		Pos:  1,
 		Text: "x",
 	}}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -29,7 +29,7 @@ func TestMultiLetterAtom(t *testing.T) {
 		Pos:  1,
 		Text: "foo",
 	}}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -50,7 +50,7 @@ func TestEmptyList(t *testing.T) {
 			Text: ")",
 		},
 	}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -77,7 +77,7 @@ func TestSingleAtomList(t *testing.T) {
 			Text: ")",
 		},
 	}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -110,7 +110,7 @@ func TestMultiAtomList(t *testing.T) {
 			Text: ")",
 		},
 	}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -143,7 +143,7 @@ func TestNestedEmptyLists(t *testing.T) {
 			Text: ")",
 		},
 	}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
@@ -194,7 +194,20 @@ func TestNestedNonEmptyLists(t *testing.T) {
 			Text: ")",
 		},
 	}
-	tokens, err := Tokenize(strings.NewReader(input))
+	tokens, err := Tokenize("test", 0, strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, expected, tokens)
+}
+
+func TestLineOffset(t *testing.T) {
+	input := "foo"
+	expected := []Token{{
+		Typ:  Atom,
+		Line: 6, // lineOffset=5, line 1 → 5+1=6
+		Pos:  1,
+		Text: "foo",
+	}}
+	tokens, err := Tokenize("test", 5, strings.NewReader(input))
 	require.NoError(t, err)
 	assert.Equal(t, expected, tokens)
 }
