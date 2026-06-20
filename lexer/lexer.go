@@ -9,13 +9,14 @@ import (
 )
 
 type Error struct {
-	line uint
-	pos  uint
-	msg  string
+	srcName string
+	line    uint
+	pos     uint
+	msg     string
 }
 
 func (e Error) Error() string {
-	return fmt.Sprintf("tokenizer error at %d:%d, %s", e.line, e.pos, e.msg)
+	return fmt.Sprintf("%s:%d:%d: lex error: %s", e.srcName, e.line, e.pos, e.msg)
 }
 
 type Token struct {
@@ -35,9 +36,10 @@ const (
 )
 
 // Tokenize splits the input into recognized tokens and returns them in order.
-// It's hand-written and rather ad-hoc but it's good enough for now.
-// For a more complex grammar I would definitely make it more generic or use ANTLR
-func Tokenize(input io.Reader) ([]Token, error) {
+// srcName is used in error messages (file path, "repl", etc.).
+// lineOffset is added to every line number, enabling the REPL to report
+// cumulative line numbers across multiple inputs.
+func Tokenize(srcName string, lineOffset uint, input io.Reader) ([]Token, error) {
 	lineScanner := bufio.NewScanner(input)
 	lineScanner.Split(bufio.ScanLines)
 
@@ -49,7 +51,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 		if *pos >= 0 {
 			tokens = append(tokens, Token{
 				Typ:  Atom,
-				Line: lineIdx,
+				Line: lineIdx + lineOffset,
 				Pos:  uint(*pos),
 				Text: b.String(),
 			})
@@ -89,7 +91,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  LParen,
-					Line: lineIdx,
+					Line: lineIdx + lineOffset,
 					Pos:  uint(i + 1),
 					Text: "(",
 				})
@@ -99,7 +101,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  RParen,
-					Line: lineIdx,
+					Line: lineIdx + lineOffset,
 					Pos:  uint(i + 1),
 					Text: ")",
 				})
@@ -109,7 +111,7 @@ func Tokenize(input io.Reader) ([]Token, error) {
 				finishAtom(&atomBuf, &pos)
 				tokens = append(tokens, Token{
 					Typ:  Quote,
-					Line: lineIdx,
+					Line: lineIdx + lineOffset,
 					Pos:  uint(i + 1),
 					Text: "'",
 				})
@@ -126,16 +128,17 @@ func Tokenize(input io.Reader) ([]Token, error) {
 			}
 
 			return tokens, Error{
-				line: lineIdx,
-				pos:  uint(i + 1),
-				msg:  fmt.Sprintf("unexpected character %s", string(r)),
+				srcName: srcName,
+				line:    lineIdx + lineOffset,
+				pos:     uint(i + 1),
+				msg:     fmt.Sprintf("unexpected character %s", string(r)),
 			}
 		}
 		// if reached end of the line and we're still reading an atom, finish it
 		if atomBuf.Len() != 0 {
 			tokens = append(tokens, Token{
 				Typ:  Atom,
-				Line: lineIdx,
+				Line: lineIdx + lineOffset,
 				Pos:  uint(pos),
 				Text: atomBuf.String(),
 			})

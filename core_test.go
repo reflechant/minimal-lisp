@@ -168,7 +168,7 @@ func TestEval(t *testing.T) {
 		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			rdr := strings.NewReader(tc.input)
-			exprs, err := parser.Parse("test", rdr)
+			exprs, err := parser.Parse("test", 0, rdr)
 			require.NoError(t, err)
 			assert.Len(t, exprs, 1)
 
@@ -189,7 +189,7 @@ func TestLambda(t *testing.T) {
 	const expected = "(a b)"
 
 	rdr := strings.NewReader(input)
-	exprs, err := parser.Parse("test", rdr)
+	exprs, err := parser.Parse("test", 0, rdr)
 	require.NoError(t, err)
 	assert.Len(t, exprs, 1)
 	result, err := exprs[0].Eval(core.BuiltinScope())

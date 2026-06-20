@@ -16,13 +16,16 @@ type Error struct {
 }
 
 func (e Error) Error() string {
-	return fmt.Sprintf("parser error at %v:%d:%d, %s", e.srcName, e.line, e.pos, e.msg)
+	return fmt.Sprintf("%s:%d:%d: parse error: %s", e.srcName, e.line, e.pos, e.msg)
 }
 
-func Parse(srcName string, input io.Reader) ([]core.SExpr, error) {
-	tokens, err := lexer.Tokenize(input)
+// Parse tokenizes and parses the input from srcName.
+// lineOffset is added to all line numbers, which lets the REPL report
+// cumulative line numbers across successive inputs.
+func Parse(srcName string, lineOffset uint, input io.Reader) ([]core.SExpr, error) {
+	tokens, err := lexer.Tokenize(srcName, lineOffset, input)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", srcName, err)
+		return nil, err
 	}
 
 	exprs := []core.SExpr{}
@@ -33,7 +36,6 @@ func Parse(srcName string, input io.Reader) ([]core.SExpr, error) {
 		if err != nil {
 			return nil, err
 		}
-		// fmt.Printf("expr: %v\n", expr)
 		exprs = append(exprs, expr)
 		i = next
 	}
@@ -46,7 +48,7 @@ func parse(srcName string, tokens []lexer.Token, start int) (core.SExpr, int, er
 
 	switch tok.Typ {
 	case lexer.Atom:
-		return core.NewSymbol(tok.Line, tok.Pos, tok.Text), start + 1, nil
+		return core.NewSymbol(srcName, tok.Line, tok.Pos, tok.Text), start + 1, nil
 	case lexer.LParen:
 		return parseList(srcName, tokens, start) // we start at i so that it can set line and pos for the list
 	case lexer.RParen:
@@ -73,7 +75,7 @@ func parse(srcName string, tokens []lexer.Token, start int) (core.SExpr, int, er
 			srcName,
 			tok.Line,
 			tok.Pos,
-			core.NewSymbol(tok.Line, tok.Pos, "quote"),
+			core.NewSymbol(srcName, tok.Line, tok.Pos, "quote"),
 			quotedExpr,
 		), next, nil
 	default:
@@ -96,7 +98,7 @@ func parseList(srcName string, tokens []lexer.Token, start int) (core.SExpr, int
 			srcName: srcName,
 			line:    line,
 			pos:     pos,
-			msg:     fmt.Sprintf("unexpected end of input: list opened at %d:%d was not closed", line, pos),
+			msg:     fmt.Sprintf("list opened at %d:%d was not closed", line, pos),
 		}
 	}
 
@@ -122,6 +124,6 @@ func parseList(srcName string, tokens []lexer.Token, start int) (core.SExpr, int
 		srcName: srcName,
 		line:    tokens[i-1].Line,
 		pos:     tokens[i-1].Pos,
-		msg:     fmt.Sprintf("unexpected end of input: list opened at %d:%d was not closed", line, pos),
+		msg:     fmt.Sprintf("list opened at %d:%d was not closed", line, pos),
 	}
 }

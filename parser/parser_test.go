@@ -12,33 +12,33 @@ import (
 
 func TestEmptyList(t *testing.T) {
 	rdr := strings.NewReader("()")
-	exprs, err := Parse("test", rdr)
+	exprs, err := Parse("test", 0, rdr)
 	require.NoError(t, err)
 	expected := []core.SExpr{
-		core.NewList(1, 1),
+		core.NewList("test", 1, 1),
 	}
 	assert.Equal(t, expected, exprs)
 }
 
 func TestOneAtom(t *testing.T) {
 	rdr := strings.NewReader("foo")
-	exprs, err := Parse("test", rdr)
+	exprs, err := Parse("test", 0, rdr)
 	require.NoError(t, err)
 	expected := []core.SExpr{
-		core.NewSymbol(1, 1, "foo"),
+		core.NewSymbol("test", 1, 1, "foo"),
 	}
 	assert.Equal(t, expected, exprs)
 }
 
 func TestNestedList(t *testing.T) {
 	rdr := strings.NewReader("(foo ( bar) baz)")
-	exprs, err := Parse("test", rdr)
+	exprs, err := Parse("test", 0, rdr)
 	require.NoError(t, err)
 	expected := []core.SExpr{
-		core.NewList(1, 1,
-			core.NewSymbol(1, 2, "foo"),
-			core.NewList(1, 6, core.NewSymbol(1, 8, "bar")),
-			core.NewSymbol(1, 13, "baz"),
+		core.NewList("test", 1, 1,
+			core.NewSymbol("test", 1, 2, "foo"),
+			core.NewList("test", 1, 6, core.NewSymbol("test", 1, 8, "bar")),
+			core.NewSymbol("test", 1, 13, "baz"),
 		),
 	}
 	for i := range expected {
@@ -51,16 +51,26 @@ func TestMultiLine(t *testing.T) {
 		`()
   foo
 ()`)
-	exprs, err := Parse("test", rdr)
+	exprs, err := Parse("test", 0, rdr)
 	require.NoError(t, err)
 	expected := []core.SExpr{
-		core.NewList(1, 1),
-		core.NewSymbol(2, 3, "foo"),
-		core.NewList(3, 1),
+		core.NewList("test", 1, 1),
+		core.NewSymbol("test", 2, 3, "foo"),
+		core.NewList("test", 3, 1),
 	}
 	for i := range expected {
 		assert.Equal(t, expected[i].String(), exprs[i].String())
 	}
+}
+
+func TestLineOffset(t *testing.T) {
+	rdr := strings.NewReader("foo")
+	exprs, err := Parse("test", 5, rdr)
+	require.NoError(t, err)
+	expected := []core.SExpr{
+		core.NewSymbol("test", 6, 1, "foo"),
+	}
+	assert.Equal(t, expected, exprs)
 }
 
 func TestSyntaxErrors(t *testing.T) {
@@ -94,7 +104,7 @@ func TestSyntaxErrors(t *testing.T) {
 		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			rdr := strings.NewReader(tc.input)
-			_, err := Parse("test", rdr)
+			_, err := Parse("test", 0, rdr)
 			require.ErrorContains(t, err, tc.expectedErrMsg)
 
 		})

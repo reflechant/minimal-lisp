@@ -1,13 +1,12 @@
 package core
 
-import "fmt"
-
 // Fn is a universal function type
 type Fn struct {
-	line uint
-	pos  uint
-	name string
-	fn   func(scope Scope, args ...SExpr) (SExpr, error)
+	srcName string
+	line    uint
+	pos     uint
+	name    string
+	fn      func(scope Scope, args ...SExpr) (SExpr, error)
 }
 
 // compile-time interface checks
@@ -25,7 +24,9 @@ func (fn Fn) Invoke(scope Scope, args ...SExpr) (SExpr, error) {
 }
 
 func (fn Fn) String() string {
-	// memory addresses are irrelevant but it's a way to distinguish
-	// functions from each other. They can be anonymous
-	return fmt.Sprintf("function %s @ %d:%d", fn.name, fn.line, fn.pos)
+	loc := location(fn.srcName, fn.line, fn.pos)
+	if fn.name != "" {
+		return "function " + fn.name + " @ " + loc
+	}
+	return "function @ " + loc
 }

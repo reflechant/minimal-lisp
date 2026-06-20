@@ -19,11 +19,14 @@ func REPL(scope core.Scope, in io.Reader, out io.Writer) error {
 		return err
 	}
 
+	var lineCount uint // tracks cumulative lines so errors say e.g. <repl>:3:5
+
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		line := scanner.Text()
 		rdr := strings.NewReader(line)
-		exprs, err := parser.Parse("repl", rdr)
+		exprs, err := parser.Parse("<repl>", lineCount, rdr)
+		lineCount++
 		if err != nil {
 			_, err := out.Write(fmt.Appendf(nil, "%v\n", err))
 			if err != nil {

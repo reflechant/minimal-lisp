@@ -9,16 +9,18 @@ var _ SExpr = new(Symbol)
 // For all intents and purposes of this implementation all atoms are symbols.
 // Even numbers are not supported :)
 type Symbol struct {
-	line uint
-	pos  uint
-	name string
+	srcName string
+	line    uint
+	pos     uint
+	name    string
 }
 
-func NewSymbol(line, pos uint, val string) Symbol {
+func NewSymbol(srcName string, line, pos uint, val string) Symbol {
 	return Symbol{
-		line: line,
-		pos:  pos,
-		name: val,
+		srcName: srcName,
+		line:    line,
+		pos:     pos,
+		name:    val,
 	}
 }
 
@@ -29,7 +31,8 @@ func (s Symbol) Eval(scope Scope) (SExpr, error) {
 		return v, nil
 	}
 
-	return nil, fmt.Errorf("%d:%d: unbound symbol %v", s.line, s.pos, s.name)
+	loc := location(s.srcName, s.line, s.pos)
+	return nil, fmt.Errorf("%s: unbound symbol %v", loc, s.name)
 }
 
 func (s Symbol) String() string {
